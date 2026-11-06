@@ -108,12 +108,21 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
      ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
    ```
 
-   The download is slow. Sampled in our run, one box alone fetched at 0.94 Gb/s and four boxes at once at about
-   0.25 Gb/s each. At those rates the release takes about 70 minutes on one box and about 4.5 hours on four at once
+   The download is slow. In our run one box alone fetched the whole release in 74 minutes (4,420 s as the fetch
+   reported it, 0.92 Gb/s on average). Four boxes at once got about 0.25 Gb/s each, which is about 4.5 hours
    (computed, not timed). So fetch on one box, then copy the whole `ds41-release` volume (the release and the
-   `.fetch-*` record beside it) to the other three over the ConnectX ports, and run the fetch on each of them: it
-   hashes every file and fetches only the wrong ones. The copy is not timed yet. A sparse copy (every file at its
-   full size, only some bytes written) is not whole. Files copied without the record are refused.
+   `.fetch-*` record beside it) to the other three over the ConnectX ports. Check each copy before you run the fetch
+   on that box: the copy command (rsync, for example) must exit 0, and the volume must hold at least 510597801105
+   bytes:
+
+   ```bash
+   sudo du -sb "$(docker volume inspect ds41-release --format '{{ .Mountpoint }}')"
+   ```
+
+   A failed copy is easy to miss: in our run the first rsync exited 23 after 0 s and left each volume at about 10 GB.
+   Then run the fetch on each box that got the copy: it hashes every file and fetches only the wrong ones. The copy
+   is not timed yet. A sparse copy (every file at its full size, only some bytes written) is not whole. Files copied
+   without the record are refused.
 
    After you update the image, run the fetch once more on every box before you boot: it checks every file and
    downloads only what is wrong or missing.
