@@ -107,10 +107,14 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
      ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
    ```
 
-   If one box already holds the whole release, copy the whole `ds41-release` volume (the release and the `.fetch-*`
-   record beside it) to the other boxes instead, then run the fetch on each of them: it hashes every file and fetches
-   only the wrong ones. A sparse copy (every file at its full size, only some bytes written) is not whole. Files
-   copied without the record are refused.
+   The download is slow: in our run one box alone took about 70 minutes (0.94 Gb/s), and four boxes at once shared
+   about 1 Gb/s, about 4.5 hours. So fetch on one box, then copy the whole `ds41-release` volume (the release and the
+   `.fetch-*` record beside it) to the other three over the ConnectX ports, and run the fetch on each of them: it
+   hashes every file and fetches only the wrong ones. A sparse copy (every file at its full size, only some bytes
+   written) is not whole. Files copied without the record are refused.
+
+   After you update the image, run the fetch once more on every box before you boot: it hashes the files and
+   downloads only what is wrong or missing.
 
 2. Optional, on every box: print the settings the boot will use, and compare the `CAP`, `SESS` and `EXTRA_ENV` lines
    with the `TUNE` table above. The output goes to stdout. With `mentat`, pass `-e MENTAT=1` in place of `PEERS`.

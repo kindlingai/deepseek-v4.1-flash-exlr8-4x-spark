@@ -96,10 +96,15 @@ docker run --rm --read-only -v ds41-release:/var/lib/gr8/release \
   ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
 ```
 
-If one box already holds the whole release, you can copy it to the others instead of downloading it on each. Copy the
-whole `ds41-release` volume, the release and the `.fetch-*` record beside it, then run the fetch on each box that got
-the copy: it hashes every file and fetches only the wrong ones. A sparse copy, with every file at its full size but
-only some of its bytes written, is not the whole release; the fetch finds those files and fetches them again.
+The download is the slow part. In our run the fetch got about 1 Gb/s in all: one box alone fetched at 0.94 Gb/s,
+about 70 minutes for the release, and four boxes at once got about 0.25 Gb/s each, about 4.5 hours. So fetch on one
+box, then copy the whole `ds41-release` volume, the release and the `.fetch-*` record beside it, to the other three
+over the ConnectX ports, and run the fetch on each of them: it hashes every file and fetches only the wrong ones. A
+sparse copy, with every file at its full size but only some of its bytes written, is not the whole release; the fetch
+finds those files and fetches them again.
+
+After you update the image, run the fetch once more on every box: it hashes the files and downloads only what is
+wrong or missing.
 
 Then run the published image on all four boxes with the same settings. Without `mentat`, this names the boxes as in
 the netplan example above:
