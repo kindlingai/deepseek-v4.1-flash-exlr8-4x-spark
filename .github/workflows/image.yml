@@ -95,14 +95,15 @@ jobs:
             echo binaries OK'
           peers=PEERS=10.9.0.1,10.9.0.2,10.9.0.3,10.9.0.4
           docker run --rm -e "$peers" "$img" show-config --no-check | grep -E "^  (TP|PEERS|CAP|SESS|MODEL|EXTRA_ENV) "
-          docker run --rm -e "$peers" -e EXACT=0 -e SESS=10 "$img" show-config --no-check | grep -E "^  (SESS|EXTRA_ENV) "
+          docker run --rm -e "$peers" -e EXACT=1 "$img" show-config --no-check | grep -E "^  (CAP|SESS|EXTRA_ENV) "
+          docker run --rm -e "$peers" -e EXACT=1 -e SESS=10 "$img" show-config --no-check | grep -E "^  (SESS|EXTRA_ENV) "
           rc=0; err=$(docker run --rm "$img" show-config --no-check 2>&1) || rc=$?
           [ "$rc" = 2 ] && echo "$err" | grep -q "want the four boxes" || { echo "no PEERS: exit $rc: $err"; exit 1; }
           docker run --rm -e MENTAT=1 "$img" show-config --no-check | grep -E "^  (MENTAT|GROUP) "
           rc=0; err=$(docker run --rm -e MENTAT=2 "$img" show-config --no-check 2>&1) || rc=$?
           [ "$rc" = 2 ] && echo "$err" | grep -q "want 0" || { echo "MENTAT=2: exit $rc: $err"; exit 1; }
           rc=0; err=$(docker run --rm -e "$peers" -e EXACT=2 "$img" show-config --no-check 2>&1) || rc=$?
-          [ "$rc" = 2 ] && echo "$err" | grep -q "want 1" || { echo "EXACT=2: exit $rc: $err"; exit 1; }
+          [ "$rc" = 2 ] && echo "$err" | grep -q "want 0" || { echo "EXACT=2: exit $rc: $err"; exit 1; }
           rc=0; err=$(docker run --rm -e "$peers" "$img" 2>&1) || rc=$?
           [ "$rc" = 2 ] && echo "$err" | grep -q "run the fetch first" || { echo "up without the release: exit $rc: $err"; exit 1; }
           echo smoke OK

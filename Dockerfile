@@ -58,7 +58,8 @@ RUN mkdir -p /out \
  && rm -rf target
 
 # g6m4_ds41: DeepSeek-V4.1-Flash-1017, fp8 KV, TP=4 only. build.sh builds it without request grammars, so this stage
-# needs no XGrammar. Its build knobs come from scripts/ds41_build_flags.sh.
+# needs no XGrammar. Its build knobs come from scripts/ds41_build_flags.sh. DS41_MX=48 (engine/runtime/build_m4.sh,
+# opt-in in gr8): 48 rows a step instead of 32, the build fast mode was measured on (README.md, More numbers).
 FROM toolchain AS engine
 WORKDIR /src
 COPY gr8/engine engine
@@ -67,7 +68,7 @@ COPY gr8/scripts/build.sh gr8/scripts/ds41_build_flags.sh scripts/
 COPY --from=libs /out/libg6load.a engine/loader-rs/target/release/libg6load.a
 COPY --from=libs /out/libg6host.a engine/target/release/libg6host.a
 COPY --from=libs /out/libgr8knobs.a engine/knobs-rs/target/release/libgr8knobs.a
-RUN MODEL=ds41 scripts/build.sh /out/bin \
+RUN DS41_MX=48 MODEL=ds41 scripts/build.sh /out/bin \
  && find /out/bin -mindepth 1 -maxdepth 1 ! -name g6m4_ds41 -exec rm -rf {} +
 
 # Engram's token map (gr8/docs/DEEPSEEK-BOOT.md, "Engram: the token map you write once"), written here so no box has to:
@@ -120,11 +121,13 @@ RUN mkdir -p /var/lib/gr8/home /var/lib/gr8/release \
 ENV PATH=/opt/ds41-4x/bin:/opt/gr8/bin:$PATH PYTHONPATH=/opt/gr8/frontend HOME=/tmp GR8_CONTAINER=1 GR8_MODEL=ds41 \
     GR8_WORK_DIR=/var/lib/gr8/home PY=/usr/bin/python3 FRONT_BIN=/opt/gr8/bin/g6front-rs
 # The recipe's knobs (README.md, "Knobs"). Set any of them in .env, or with docker run -e, to override.
-#   CAP     the longest chat in tokens, prompt and reply together; every chat slot gets this much KV at boot
-#   SESS    chats at once; above 5, knobs.sh adds GR8_DS_SESS_DRAFTS=1 so every chat keeps drafting
-#   EXACT   1: the exact model; 0: gr8/docs/FIRST-BOOT.md Q3's two switches, faster and not exact (knobs.sh)
+#   EXACT   0: fast mode, not exact (32 chats, CAP 327680); 1: the exact model (5 chats, CAP 262144) (knobs.sh)
+#   CAP     the longest chat in tokens, prompt and reply together; every chat slot gets this much KV at boot.
+#           Unset: by EXACT (knobs.sh)
+#   SESS    chats at once; above 5, knobs.sh adds GR8_DS_SESS_DRAFTS=1: each chat drafts fewer tokens as more chats
+#           write, and none when more than 24 write. Unset: by EXACT
 #   MENTAT  0: the four boxes in PEERS; 1: find each other through mentat (knobs.sh)
-ENV CAP=262144 SESS=5 EXACT=1 MENTAT=0
+ENV EXACT=0 MENTAT=0
 # The rest of the recipe, as gr8's launcher options (gr8/KNOBS.md)
 #   MODEL:   the release, read in place from the release volume (fetch-release.sh puts it there)
 #   RELEASE: the Hugging Face commit fetch-release.sh fetches, the one measured in README.md

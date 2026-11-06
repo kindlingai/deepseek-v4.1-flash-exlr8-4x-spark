@@ -17,7 +17,7 @@ services:
     image: ${IMAGE:-ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest}
     container_name: ds41-4x-spark
     # The knobs (CAP, SESS, EXACT, MENTAT; README.md) and any other gr8 option come from .env. Unset, the image's
-    # defaults apply (Dockerfile).
+    # defaults apply (Dockerfile, and knobs.sh for CAP and SESS).
     env_file:
       - path: .env
         required: false
