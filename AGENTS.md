@@ -31,7 +31,8 @@ On every box:
 
   The peer prints `ACCEPTED from` and the head's address, and the head prints `OPEN`. The listener stops after one
   connection, so start it again for each test. Do the same for port 7341, for each of the three peers, on the `PEERS`
-  addresses and, if you set them, the `IPS` and `IPS2` addresses. Then once the other way, from a peer to the head.
+  addresses and, if you set them, the `IPS` and `IPS2` addresses. Then test once the other way: listen on the head and
+  connect from a peer.
   `BLOCKED` means a firewall, a wrong address, or no listener on the other box.
 - No other model runs on the box: `docker ps` and `nvidia-smi` show none. The launcher refuses to start next to
   another g6m4 engine on the box.
@@ -107,13 +108,14 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
      ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
    ```
 
-   The download is slow: in our run one box alone took about 70 minutes (0.94 Gb/s), and four boxes at once shared
-   about 1 Gb/s, about 4.5 hours. So fetch on one box, then copy the whole `ds41-release` volume (the release and the
+   The download is slow. Sampled in our run, one box alone fetched at 0.94 Gb/s and four boxes at once at about
+   0.25 Gb/s each. At those rates the release takes about 70 minutes on one box and about 4.5 hours on four at once
+   (computed, not timed). So fetch on one box, then copy the whole `ds41-release` volume (the release and the
    `.fetch-*` record beside it) to the other three over the ConnectX ports, and run the fetch on each of them: it
-   hashes every file and fetches only the wrong ones. A sparse copy (every file at its full size, only some bytes
-   written) is not whole. Files copied without the record are refused.
+   hashes every file and fetches only the wrong ones. The copy is not timed yet. A sparse copy (every file at its
+   full size, only some bytes written) is not whole. Files copied without the record are refused.
 
-   After you update the image, run the fetch once more on every box before you boot: it hashes the files and
+   After you update the image, run the fetch once more on every box before you boot: it checks every file and
    downloads only what is wrong or missing.
 
 2. Optional, on every box: print the settings the boot will use, and compare the `CAP`, `SESS` and `EXTRA_ENV` lines
