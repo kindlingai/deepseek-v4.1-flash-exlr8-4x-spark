@@ -12,6 +12,8 @@
 #   5. --check hashes only the files that changed since they were last hashed
 #   6. a record from before the script hashed (no hashes): --check fails, the fetch hashes every file and fetches none
 #   7. a download that stops part way: the fetch fails and keeps the part, and the next fetch completes the file
+#   8. a file that changes while it is hashed: --check hashes it again; when it keeps changing, --check fails; when it
+#      changed to wrong bytes, --check fails on the hash and the fetch fetches it again
 set -euo pipefail
 script=$(cd "$(dirname "$0")/.." && pwd)/fetch-release.sh
 t=$(mktemp -d -t ds41-fetch-test.XXXXXX)
@@ -144,5 +146,37 @@ mv "$HF/stop" "$t/stop.done" && : > "$HF/resumed.log"
 "$script" > /dev/null || fail "fetch after the stopped download"
 [ "$(cat "$MODEL/weights.bin")" = NEW ] && [ "$(cat "$HF/resumed.log")" = "$B/weights.bin 1" ] ||
   fail "after the next fetch: weights.bin $(cat "$MODEL/weights.bin"), requests $(tr '\n' ' ' < "$HF/resumed.log")"
+
+# 8
+mv "$t/bin/sha256sum" "$t/sha256sum.logged"
+cat > "$t/bin/sha256sum" <<STUB
+#!/bin/bash
+# The logged sha256sum; then, before it answers and one clock tick later, weights.bin gets the bytes in
+# \$HF/mutate-once (once) or \$HF/mutate (at every call)
+"$t/sha256sum.logged" "\$@" || exit
+sleep 0.05
+if [ -e "\$HF/mutate-once" ]; then
+  cat "\$HF/mutate-once" > "\$MODEL/weights.bin"; mv "\$HF/mutate-once" "\$HF/mutate-once.used"
+elif [ -e "\$HF/mutate" ]; then cat "\$HF/mutate" > "\$MODEL/weights.bin"; fi
+STUB
+chmod +x "$t/bin/sha256sum"
+printf NEW > "$HF/mutate" && printf NEW > "$MODEL/weights.bin" && : > "$HF/hashed.log"
+rc=0; err=$("$script" --check 2>&1) || rc=$?
+[ "$rc" = 1 ] && [ "$err" = "weights.bin: changed while it was hashed, 3 times" ] &&
+  [ "$(grep -c sha256sum "$HF/hashed.log")" = 3 ] ||
+  fail "check of a file that changes at every hash: exit $rc, hashed $(grep -c sha256sum "$HF/hashed.log") times: $err"
+mv "$HF/mutate" "$t/mutate.done"
+printf BAD > "$HF/mutate-once" && printf NEW > "$MODEL/weights.bin" && : > "$HF/hashed.log"
+rc=0; err=$("$script" --check 2>&1) || rc=$?
+[ "$rc" = 1 ] && echo "$err" | grep -q "^MISMATCH weights.bin: .* (sha256)$" &&
+  [ "$(grep -c sha256sum "$HF/hashed.log")" = 2 ] ||
+  fail "check of a file that changed to BAD while it was hashed: exit $rc,"\
+    "hashed $(grep -c sha256sum "$HF/hashed.log") times: $err"
+[ "$(cat "$MODEL/weights.bin")" = BAD ] || fail "weights.bin after the change: $(cat "$MODEL/weights.bin")"
+: > "$HF/fetched.log"
+"$script" > /dev/null 2>&1 || fail "fetch after weights.bin changed to BAD"
+"$script" --check > /dev/null || fail "check after the fetch of the changed weights.bin"
+[ "$(cat "$MODEL/weights.bin")" = NEW ] && [ "$(cat "$HF/fetched.log")" = "$B/weights.bin" ] ||
+  fail "after the fetch: weights.bin $(cat "$MODEL/weights.bin"), fetched $(tr '\n' ' ' < "$HF/fetched.log")"
 
 echo "fetch-release test OK ($t)"
