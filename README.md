@@ -1,4 +1,5 @@
 # KindlingAI: DeepSeek-V4.1-Flash EXLR8 on four DGX Sparks
+**If you are an agent booting this for someone: read [AGENTS.md](AGENTS.md) first, then the Quickstart.**
 
 _**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg/8EAvYPV2rE**_
 
@@ -6,21 +7,29 @@ _**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg
 128 GB each) at TP=4, served by [gr8](https://github.com/kindlingai/gr8) from
 [kindlingai/deepseek-v4.1-flash-exlr8-native](https://huggingface.co/kindlingai/deepseek-v4.1-flash-exlr8-native):
 fp8 KV, Engram and 32 chats at once, in fast mode by default. Fast mode writes faster, and its output is not
-bit-identical to the exact model's. `EXACT=1` gives the exact model's output (see What you can trade).
+bit-identical to the exact model's.
 
 **Our view:** DeepSeek-V4.1-Flash is best used as a reviewer, and for work that will be double-checked, because it
 tends to hallucinate a lot in general. That is a model issue, not an engine or quant issue.
 
-> Not yet run end to end. The image with fast mode as its default has not been built or booted yet, and CI has not run
-> on it. The numbers below come from an older gr8 with the same engine settings, on four boxes through our own test
-> harness, not from this image. This recipe's Quickstart has not yet been run on four clean boxes. If a step fails, tell
-> us on Discord.
+> Not yet booted end to end: we have not yet run this image, or the Quickstart, on four boxes. The numbers below come
+> from an older gr8 with the same engine settings, on four boxes through our own test harness, not from this image. If
+> a step fails, tell us on Discord.
 
 ![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
 
 *The card is one `gr8` bench run in fast mode on 2026-11-05: gr8 `main` at `35a8f1c` with the change that became
 #359, built with `DS41_MX=48` (see More numbers). A recording of several chats at once, at this recipe's defaults, is
 still to come.*
+
+Pick what to prioritize with one setting, `TUNE`, the same on all four boxes:
+
+- `TUNE=speed` (the default): one chat writes code at 142.4-145.6 tok/s, and 32 chats run at once.
+- `TUNE=context`: one chat of up to 1,048,566 tokens, 16 chats at once. Only partly measured.
+- `TUNE=quality`: the exact model's output, 5 chats at once.
+
+We recommend `TUNE=speed` or `TUNE=context`. The model hallucinates in every mode (see Our view, above). Details:
+[Pick what to prioritize](#pick-what-to-prioritize), below the Quickstart.
 
 ## What you need
 
@@ -149,9 +158,9 @@ In `.env` next to `compose.yaml` (see `.env.example`), or with `docker run -e`, 
 |---|---|---|
 | `PEERS` | none | The four boxes' 10G LAN addresses, head first. Required unless `MENTAT=1`. |
 | `IPS`, `IPS2` | none | Each box's ConnectX address on PCIe root 1 and root 2, in `PEERS` order (see Clustering). |
-| `EXACT` | `0` | `0`: fast mode, faster and not bit-identical to the exact model's output. `1`: the exact model's output (see What you can trade). |
-| `CAP` | `327680`; `262144` with `EXACT=1` | The longest chat in tokens, prompt and reply together. Every chat slot gets this much KV at boot. A request holds at most `CAP` less 10 tokens (327,670; 262,134 with `EXACT=1`). |
-| `SESS` | `32`; `5` with `EXACT=1` | Chats at once, 1 to 32. A chat that arrives when every slot is busy waits. Above 5, the image adds `GR8_DS_SESS_DRAFTS=1`: each chat drafts fewer tokens as more chats write, and none when more than 24 write at once. |
+| `TUNE` | `speed` | `speed`: fast mode, faster and not bit-identical to the exact model's output. `context`: fast mode, one chat of up to 1,048,566 tokens. `quality`: the exact model's output. See Pick what to prioritize. `EXACT=1`, the older name, is now `TUNE=quality`. |
+| `CAP` | `327680`; `1048576` with `TUNE=context`; `262144` with `TUNE=quality` | The longest chat in tokens, prompt and reply together. Every chat slot gets this much KV at boot. A request holds at most `CAP` less 10 tokens (327,670; 1,048,566 with `TUNE=context`; 262,134 with `TUNE=quality`). |
+| `SESS` | `32`; `16` with `TUNE=context`; `5` with `TUNE=quality` | Chats at once, 1 to 32. A chat that arrives when every slot is busy waits. Above 5, the image adds `GR8_DS_SESS_DRAFTS=1`: each chat drafts fewer tokens as more chats write, and none when more than 24 write at once. |
 | `MENTAT` | `0` | `1`: the boxes find each other and their ConnectX addresses through the host's `mentat` daemon, and register the API, in group `GROUP` (`gr8-ds41-4x`). |
 
 The image pins the release to the Hugging Face commit measured below,
@@ -166,25 +175,36 @@ and the release's tokenizer, and the build stops unless it matches the map the e
 You can set any other `gr8` option in `.env` too: [gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/KNOBS.md)
 lists them, and [gr8/docs/DEEPSEEK-BOOT.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/DEEPSEEK-BOOT.md)
 covers DeepSeek-V4.1-Flash. Engine settings go in `EXTRA_ENV`, as `NAME=value` pairs separated by spaces
-(`EXTRA_ENV="A=1 B=2"`). The image sets `TP=4`, Engram and fast mode's switches (`Dockerfile`, `knobs.sh`). The KV
-cache is always fp8. The image's engine is built with `DS41_MX=48`: a decode step holds 48 rows instead of gr8's
+(`EXTRA_ENV="A=1 B=2"`). The image sets `TP=4`, Engram and the `TUNE` value's settings (`Dockerfile`, `knobs.sh`). The
+KV cache is always fp8. The image's engine is built with `DS41_MX=48`: a decode step holds 48 rows instead of gr8's
 default 32, so a step can verify 6 rows for each of 8 chats
 ([gr8/engine/runtime/build_m4.sh](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/engine/runtime/build_m4.sh)).
 
-## What you can trade
+## Pick what to prioritize
 
-### Fast mode or the exact model
+`TUNE` picks one of three sets of settings (`knobs.sh`). A `CAP` or `SESS` you set yourself keeps your value, and
+settings in `EXTRA_ENV` come after the recipe's own. Above 5 chats, every value also gets `GR8_DS_SESS_DRAFTS=1` (see
+Knobs).
 
-Fast mode (`EXACT=0`, the default) turns on the switches of
+| `TUNE` | sets | you get | you give up | measured |
+|---|---|---|---|---|
+| `speed` (default) | fast mode: `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1`, `SESS=32`, `CAP=327680` | One chat writes code / prose / structured at 142.4-145.6 / 83.5-84.6 / 159.5-161.6 tok/s. 8 chats together write 210.7-228.3 tok/s. 32 chats of up to 327,670 tokens. | Replies are not bit-identical to the exact model's. 72 of 75 right on FIRST-BOOT.md's 75-item check, against the exact model's 73. | On gr8 `main` at `35a8f1c` with the change that became #359, not on this image (see More numbers). |
+| `context` | fast mode's six switches, `GR8_DS_CACHE_MIB=2048` (the prefix cache at half its default), `SESS=16`, `CAP=1048576` | One chat of up to 1,048,566 tokens. A 1,031,542-token prompt reads in about 417 s. 9.8-10.0 GiB free a box at ready. | 16 chats at once, not 32. Recall at 1M found all 3 hidden facts in 2 of 7 prompts. At 2,048 MiB, only the last 1M chat stays in the prefix cache. | Partly: [FIRST-BOOT.md Q2](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q2-how-long-can-one-chat-be), on an earlier gr8 build with only Q3's two switches, not this image's `DS41_MX=48` build. The memory and read time are from that build. Speed at 1M is not measured. |
+| `quality` | gr8's launcher defaults (none of fast mode's switches), `SESS=5`, `CAP=262144` | The exact model's output. 73 of 75 right, in each of three runs. | One chat writes code / prose / structured at 104.6-105.9 / 61.7-62.0 / 126.2-126.9 tok/s. 5 chats at once, of up to 262,134 tokens. | On older gr8 builds, not on this image's `DS41_MX=48` build (see More numbers). |
+
+### `speed` against `quality`
+
+Fast mode (`TUNE=speed`, the default, and `TUNE=context`) turns on the switches of
 [gr8/docs/FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness)
 Q3 (`GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4`) and Q4 (`GR8_DS41_HEAD_MX=1`), which change
-the output. It also turns on three prefill settings of [gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/ENV.md):
-`GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` and `GR8_DS_MHC_ROW_SHARD=1`. Its replies are not bit-identical to
-the exact model's: the same prompt can get a different reply. `EXACT=1` runs gr8's launcher defaults, which give the
+the output. It also turns on three prefill settings of
+[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/ENV.md):
+`GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` and `GR8_DS_MHC_ROW_SHARD=1`. Its replies are not bit-identical to the
+exact model's: the same prompt can get a different reply. `TUNE=quality` runs gr8's launcher defaults, which give the
 exact model's output. In FIRST-BOOT.md, Q3's two switches took the 75-item check from 73 to 71 right, and Q4's head,
 added to them, brought it to 72.
 
-| | fast mode (default) | `EXACT=1` |
+| | `TUNE=speed` (default) | `TUNE=quality` |
 |---|---|---|
 | output | not bit-identical to the exact model's | the exact model's |
 | FIRST-BOOT.md's 75-item check | 72 of 75 right, on each of two boots | 73 of 75 right, in each of three runs |
@@ -194,7 +214,7 @@ added to them, brought it to 72.
 | chats at once, unless `SESS` is set | 32 | 5 |
 | longest request, unless `CAP` is set | 327,670 tokens | 262,134 tokens |
 
-The two columns come from different gr8 builds and boots: the `EXACT=1` column is an older build with 5 chat slots.
+The two columns come from different gr8 builds and boots: the `TUNE=quality` column is an older build with 5 chat slots.
 So the table does not show how much of the difference fast mode alone makes. More numbers names both builds.
 
 ### Chat slots and chat length
@@ -205,13 +225,13 @@ measured on four GB10 boxes with an earlier gr8 build. Q3's switches were on, th
 | change | you gain | you give up | measured |
 |---|---|---|---|
 | `SESS=5` | With 8 chats, the 5 that run write 68-69 tok/s each, against 51-56 when 10 slots let all 8 run. The total stays at about 235-275 tok/s from 8 chats up. Each 262,144-token slot dropped frees about 0.35 GiB a box at ready. | Chats beyond 5 wait for a slot. With 16 chats, 11 wait, and the first word comes in 5.4-5.5 s, against 4.2-4.4 s with 10 or 16 slots. | [Q1](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q1-how-many-chats-at-once), 5, 10 and 16 slots; 32 slots were not part of Q1 |
-| `CAP=1048576 SESS=16` | One chat can hold 1,048,566 tokens. | A 1,031,542-token prompt takes about 417 s to read. Recall at 1M found all 3 hidden facts in 2 of 7 prompts. 9.8-10.0 GiB free a box at ready. | [Q2](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q2-how-long-can-one-chat-be), 16 slots, `GR8_DS_CACHE_MIB=2048`; 32 slots at 1M were not tested |
+| `CAP=1048576 SESS=16` (`TUNE=context`) | One chat can hold 1,048,566 tokens. | A 1,031,542-token prompt takes about 417 s to read. Recall at 1M found all 3 hidden facts in 2 of 7 prompts. 9.8-10.0 GiB free a box at ready. | [Q2](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q2-how-long-can-one-chat-be), 16 slots, `GR8_DS_CACHE_MIB=2048`; 32 slots at 1M were not tested |
 
 ## The prefix cache
 
-Each box keeps snapshots of recent prompts in memory, up to 4,096 MiB (`GR8_DS_CACHE_MIB`). A later prompt that
-starts the same way, such as an agent's next turn, reads only the part after the snapshot. The cache is not kept on
-disk, so a restart empties it.
+Each box keeps snapshots of recent prompts in memory, up to 4,096 MiB (`GR8_DS_CACHE_MIB`; `TUNE=context` sets 2,048).
+A later prompt that starts the same way, such as an agent's next turn, reads only the part after the snapshot. The
+cache is not kept on disk, so a restart empties it.
 
 ## More numbers
 
@@ -238,15 +258,15 @@ The rows are the four runs, two on each boot, as a range:
 | quality | 72 of 75 on FIRST-BOOT.md's 75-item check, one run on each boot |
 | the release | 510.6 GB in 604 files, on every box |
 
-### `EXACT=1`
+### `TUNE=quality`
 
 One boot on 2026-11-02 of the branch that was merged as gr8 `main` at
 [`40a91f5`](https://github.com/kindlingai/gr8/commit/40a91f57beac69a752ab15b6e8f4e1c24d70c7a4). Its engine, launcher and
 front end are the same as `40a91f5`'s, built with gr8's default 32 rows a step. It used the launcher's defaults and
 Engram: exact output, 5 chat slots, `CAP` 262,144. Its longest request was 163,830 tokens, because it came before gr8
 #325. `main` now allows 262,134. `main`'s launcher has since added three defaults that this boot ran without:
-`GR8_DEC_BK` equal to `CAP` (this boot: 16384), `GR8_DS_COMP_FP4=1` and `GR8_S2_DECODE_PF=1024`. `EXACT=1` on this
-image's `DS41_MX=48` build has not been measured.
+`GR8_DEC_BK` equal to `CAP` (this boot: 16384), `GR8_DS_COMP_FP4=1` and `GR8_S2_DECODE_PF=1024`. `TUNE=quality` on
+this image's `DS41_MX=48` build has not been measured.
 
 The first four rows are that boot's two runs, as a range:
 
@@ -264,7 +284,8 @@ through our own test harness, not this image.
 
 ## For your agent
 
-- [AGENTS.md](AGENTS.md): where the settings are, in two lines.
+- [AGENTS.md](AGENTS.md): how to boot this recipe and check that it serves, every knob, and what each `TUNE` value
+  sets.
 - [gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/KNOBS.md): every
   `gr8` option.
 - [gr8/docs/DEEPSEEK-BOOT.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/DEEPSEEK-BOOT.md)

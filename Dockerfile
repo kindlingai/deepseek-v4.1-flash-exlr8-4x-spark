@@ -121,13 +121,14 @@ RUN mkdir -p /var/lib/gr8/home /var/lib/gr8/release \
 ENV PATH=/opt/ds41-4x/bin:/opt/gr8/bin:$PATH PYTHONPATH=/opt/gr8/frontend HOME=/tmp GR8_CONTAINER=1 GR8_MODEL=ds41 \
     GR8_WORK_DIR=/var/lib/gr8/home PY=/usr/bin/python3 FRONT_BIN=/opt/gr8/bin/g6front-rs
 # The recipe's knobs (README.md, "Knobs"). Set any of them in .env, or with docker run -e, to override.
-#   EXACT   0: fast mode, not exact (32 chats, CAP 327680); 1: the exact model (5 chats, CAP 262144) (knobs.sh)
+#   TUNE    speed: fast mode, not exact (32 chats, CAP 327680); context: fast mode, one chat up to 1M tokens (16 chats,
+#           CAP 1048576); quality: the exact model (5 chats, CAP 262144) (knobs.sh)
 #   CAP     the longest chat in tokens, prompt and reply together; every chat slot gets this much KV at boot.
-#           Unset: by EXACT (knobs.sh)
+#           Unset: by TUNE (knobs.sh)
 #   SESS    chats at once; above 5, knobs.sh adds GR8_DS_SESS_DRAFTS=1: each chat drafts fewer tokens as more chats
-#           write, and none when more than 24 write. Unset: by EXACT
+#           write, and none when more than 24 write. Unset: by TUNE
 #   MENTAT  0: the four boxes in PEERS; 1: find each other through mentat (knobs.sh)
-ENV EXACT=0 MENTAT=0
+ENV TUNE=speed MENTAT=0
 # The rest of the recipe, as gr8's launcher options (gr8/KNOBS.md)
 #   MODEL:   the release, read in place from the release volume (fetch-release.sh puts it there)
 #   RELEASE: the Hugging Face commit fetch-release.sh fetches, the one measured in README.md
