@@ -90,7 +90,7 @@ Every knob:
 | `RELEASE_DIR`, `GR8_HOME_DIR` | compose only: host directories in place of the volumes `ds41-release` and `ds41-home`, owned by uid 1000 | the named volumes |
 | `IMAGE` | compose only: a pinned image, e.g. `ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:sha-<commit>` | `:latest` |
 | `RELEASE` | the release to fetch, `https://huggingface.co/<org>/<repo>@<commit>` | the commit README.md measured |
-| `FETCH_JOBS` | files the fetch takes at once | `8` |
+| `FETCH_JOBS` | files the fetch, and the check before each boot, take at once | `8` |
 | `HF_TOKEN` | sent only to Hugging Face, for a gated or private repo | none |
 | `EXTRA_ENV` | more engine settings, `NAME=value` pairs separated by spaces | none |
 
@@ -98,8 +98,9 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 
 ## 3. Boot
 
-1. On every box, fetch the release: 604 files, 510.6 GB. It resumes if you run it again. Wait until it has finished
-   on all four boxes: the container refuses to start while the release on its box is not whole.
+1. On every box, fetch the release: 604 files, 510.6 GB. It resumes if you run it again, checks every file's hash, and
+   fetches a wrong file again. Wait until it has finished on all four boxes: the container refuses to start while the
+   release on its box is not whole.
 
    ```bash
    docker run --rm --read-only -v ds41-release:/var/lib/gr8/release \
@@ -171,6 +172,8 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 |---|---|
 | `PEERS=...: want the four boxes' LAN addresses, head first, the same on every box (or MENTAT=1)` | set `PEERS` to four addresses, the same list on every box, or `MENTAT=1` |
 | `ds41-4x: the release in ... is not whole: run the fetch first, on every box` | run the fetch (step 1) on that box. With compose, the container restarts and stops again until the fetch is done |
+| `fetch-release.sh: no record that ... holds ..., with each file's hash (run the fetch)` | the volume holds another release, or an image from before the fetch checked hashes fetched it: run the fetch (step 1). It hashes the files that are there and fetches only the wrong or missing ones |
+| `MISMATCH <file>: ...` | that file has its full size but not the content the release lists (a sparse or damaged copy): run the fetch (step 1), which fetches it again |
 | `TUNE=...: want speed ..., context ... or quality ...` | use one of the three values |
 | `EXACT=...: EXACT is now TUNE ...` | remove `EXACT`; set `TUNE=quality` for the exact model |
 | `SESS=...: want a number of chats, 1 or more` | set `SESS` to a whole number from 1 to 32, no leading zero |

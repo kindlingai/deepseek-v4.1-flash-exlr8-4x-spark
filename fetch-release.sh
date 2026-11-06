@@ -1,15 +1,23 @@
 #!/bin/bash
 # Fetch the release RELEASE names (https://huggingface.co/<org>/<repo>@<commit>) into MODEL, whole: every file at its
-# full size. ds41 reads the release in place, and its loader needs every Engram part file (gr8/docs/DEEPSEEK-BOOT.md),
-# so there is no per-box subset. A stopped fetch resumes where it left off. HF_TOKEN is sent to Hugging Face when set.
+# full size and with the content the release lists for it. ds41 reads the release in place, and its loader needs every
+# Engram part file (gr8/docs/DEEPSEEK-BOOT.md), so there is no per-box subset. A stopped fetch resumes where it left
+# off. HF_TOKEN is sent to Hugging Face when set.
 #
-# Beside MODEL the script records the release and each file's Hugging Face blob id (a hash of the file's content).
+# Beside MODEL the script records the release and, for each file, its size, its Hugging Face blob id, and the hash of
+# its content: the sha256 Hugging Face lists for a large (LFS) file, the git blob id (the sha1 of "blob <size>\0" and
+# the content) for a small one. The fetch hashes each file once it has it and fetches it again, from the start, when
+# the hash is wrong: a copy of the right size can still be wrong, a sparse copy with holes for one. Each file whose hash
+# is right is recorded with its size, change time and inode, so later checks hash only the files that changed since.
+#
 # When RELEASE changes, the fetch deletes every file whose blob id differs from the new release's, or that the new
 # release does not have, and fetches it again; files with the same content stay. A MODEL that holds files but has no
 # record is refused: the script cannot tell which release they came from.
 #
-#   fetch-release.sh            fetch what is missing (FETCH_JOBS files at once, 8 by default), then check
-#   fetch-release.sh --check    exit 0 when MODEL holds the whole release RELEASE names, else 1 (no network)
+#   fetch-release.sh            fetch what is missing or wrong (FETCH_JOBS files at once, 8 by default), then check
+#   fetch-release.sh --check    exit 0 when MODEL holds the whole release RELEASE names, else 1 (no network): every
+#                               file at its size, then at its hash (FETCH_JOBS files at once). OK or MISMATCH for each
+#                               file it hashes
 set -euo pipefail
 url=${RELEASE:?RELEASE is not set}
 dest=${MODEL:?MODEL is not set}
@@ -18,51 +26,93 @@ repo=${spec%@*}
 rev=${spec#*@}
 [ "$rev" != "$spec" ] || rev=main
 state=$(dirname "$dest")/.fetch-$(basename "$dest")   # the record, beside the release
-list=$state/files.tsv                                 # size TAB path, one line a file
+list=$state/sums.tsv                                  # size TAB hash TAB path, one line a file; hash is sha256:<hex>
+                                                      # or blob:<git blob id>
 blobs=$state/blobs.tsv                                # blob id TAB path: the content each file in MODEL is for
+hashed=$state/hashed.tsv                              # "size ctime inode" TAB hash TAB path: files whose hash was right
 auth=()
 [ -z "${HF_TOKEN:-}" ] || auth=(-H "Authorization: Bearer $HF_TOKEN")
 
-whole() {
-  [ -s "$list" ] && [ "$(cat "$state/release" 2>/dev/null)" = "$repo@$rev" ] || return 1
-  local size path
-  while IFS=$'\t' read -r size path; do
-    [ "$(stat -c %s "$dest/$path" 2>/dev/null)" = "$size" ] || return 1
-  done < "$list"
+verify() {  # $1 = "size TAB hash TAB path": 0 when the file has that size and that hash
+  local size sum path sig got
+  IFS=$'\t' read -r size sum path <<< "$1"
+  sig=$(stat -c '%s %.9Z %i' "$dest/$path" 2>/dev/null) || { echo "$path: missing" >&2; return 1; }
+  [ "${sig%% *}" = "$size" ] || { echo "$path: ${sig%% *} bytes, want $size" >&2; return 1; }
+  grep -qFx -- "$sig"$'\t'"$sum"$'\t'"$path" "$hashed" 2>/dev/null && return 0   # hashed before, unchanged since
+  case $sum in
+    sha256:*) got=sha256:$(sha256sum < "$dest/$path" | cut -c1-64) ;;
+    blob:*) got=blob:$({ printf 'blob %s\0' "$size"; cat "$dest/$path"; } | sha1sum | cut -c1-40) ;;
+    *) got=none ;;
+  esac
+  [ "$got" = "$sum" ] || { echo "MISMATCH $path: ${got#*:}, want ${sum#*:} (${sum%%:*})" >&2; return 1; }
+  echo "OK $path"
+  # Recorded only when the file did not change while it was hashed
+  [ "$(stat -c '%s %.9Z %i' "$dest/$path")" != "$sig" ] ||
+    { printf '%s\t%s\t%s\n' "$sig" "$sum" "$path" >> "$hashed"; } 2> /dev/null || true
 }
 
-one() {  # $1 = "size TAB path": fetch one file unless it is already whole
-  local size=${1%%$'\t'*} path=${1#*$'\t'} have
+whole() {
+  if [ ! -s "$list" ] || [ "$(cat "$state/release" 2>/dev/null)" != "$repo@$rev" ]; then
+    echo "fetch-release.sh: no record that $dest holds $repo@$rev, with each file's hash (run the fetch)" >&2
+    return 1
+  fi
+  local size sum path
+  while IFS=$'\t' read -r size sum path; do   # the sizes first: quick
+    [ "$(stat -c %s "$dest/$path" 2>/dev/null)" = "$size" ] ||
+      { echo "fetch-release.sh: $path is missing or not at its size" >&2; return 1; }
+  done < "$list"
+  tr '\n' '\0' < "$list" | xargs -0 -n 1 -P "${FETCH_JOBS:-8}" "$0" --verify || return 1   # then the hashes
+}
+
+get() {  # $1 = path, $2 = size: fetch the rest of the file
+  curl -fsSL --retry 10 --retry-all-errors --retry-delay 5 ${auth[@]+"${auth[@]}"} -C - -o "$dest/$1" \
+    "https://huggingface.co/$repo/resolve/$rev/$1"
+  local have
+  have=$(stat -c %s "$dest/$1")
+  [ "$have" = "$2" ] || { echo "$1: $have bytes, want $2" >&2; return 1; }
+  echo "fetched $1"
+}
+
+one() {  # $1 = "size TAB hash TAB path": fetch one file unless it is already whole
+  local size sum path have
+  IFS=$'\t' read -r size sum path <<< "$1"
   mkdir -p "$(dirname "$dest/$path")"
   [ "$size" != 0 ] || { : > "$dest/$path"; return 0; }
   have=$(stat -c %s "$dest/$path" 2>/dev/null || echo 0)
-  [ "$have" = "$size" ] && return 0
-  [ "$have" -lt "$size" ] || rm -f "$dest/$path"      # longer than the release's file: start it again
-  curl -fsSL --retry 10 --retry-all-errors --retry-delay 5 ${auth[@]+"${auth[@]}"} -C - -o "$dest/$path" \
-    "https://huggingface.co/$repo/resolve/$rev/$path"
-  have=$(stat -c %s "$dest/$path")
-  [ "$have" = "$size" ] || { echo "$path: $have bytes, want $size" >&2; return 1; }
-  echo "fetched $path"
+  if [ "$have" = "$size" ]; then
+    verify "$1" && return 0
+    rm -f -- "$dest/$path"                            # the right size but not the right content: start it again
+  elif [ "$have" -gt "$size" ]; then
+    rm -f -- "$dest/$path"                            # longer than the release's file: start it again
+  fi
+  get "$path" "$size" && verify "$1" && return 0
+  rm -f -- "$dest/$path"                              # a resumed file can carry a wrong first part: once more, whole
+  get "$path" "$size" && verify "$1"
 }
 
 case "${1:-}" in
   --check) whole; exit ;;
   --one) one "$2"; exit ;;
+  --verify) verify "$2"; exit ;;
   '') ;;
   *) echo "fetch-release.sh: want no argument, or --check" >&2; exit 2 ;;
 esac
 
 mkdir -p "$state" "$dest"
-# The file list again when RELEASE changed, or always when it names a branch rather than a commit (a branch moves)
+# The file list again when RELEASE changed, when the record has no hashes (a fetch from before the script hashed), or
+# always when RELEASE names a branch rather than a commit (a branch moves)
 if [ "$(cat "$state/release" 2>/dev/null)" != "$repo@$rev" ] || [ ! -s "$list" ] || [ ! -s "$blobs" ] ||
    ! [[ $rev =~ ^[0-9a-f]{40}$ ]]; then
   curl -fsSL ${auth[@]+"${auth[@]}"} "https://huggingface.co/api/models/$repo/revision/$rev?blobs=true" > "$state/api.json"
-  jq -e '.siblings | length > 0 and all(.[]; .size != null and .blobId != null)' "$state/api.json" > /dev/null ||
-    { echo "fetch-release.sh: no file list with sizes and blob ids for $repo@$rev" >&2; exit 1; }
-  jq -r '.siblings[] | "\(.size)\t\(.rfilename)"' "$state/api.json" > "$list.new"
+  jq -e '.siblings | length > 0 and
+      all(.[]; .size != null and .blobId != null and (.lfs == null or .lfs.sha256 != null))' "$state/api.json" \
+    > /dev/null ||
+    { echo "fetch-release.sh: no file list with sizes, blob ids and hashes for $repo@$rev" >&2; exit 1; }
+  jq -r '.siblings[] | "\(.size)\t\(if .lfs then "sha256:\(.lfs.sha256)" else "blob:\(.blobId)" end)\t\(.rfilename)"' \
+    "$state/api.json" > "$list.new"
   jq -r '.siblings[] | "\(.blobId)\t\(.rfilename)"' "$state/api.json" > "$blobs.new"
   rm -f "$state/api.json"
-  ! cut -f2 "$list.new" | grep -qE '^/|(^|/)\.\.(/|$)' ||
+  ! cut -f3 "$list.new" | grep -qE '^/|(^|/)\.\.(/|$)' ||
     { echo "fetch-release.sh: a file of $repo@$rev has a path outside MODEL" >&2; exit 1; }
   if [ -s "$blobs" ]; then
     # Another release (or the branch moved): delete each file whose content the new release does not have at that path
@@ -75,6 +125,7 @@ if [ "$(cat "$state/release" 2>/dev/null)" != "$repo@$rev" ] || [ ! -s "$list" ]
   fi
   mv "$list.new" "$list"
   mv "$blobs.new" "$blobs"
+  rm -f "$state/files.tsv"                            # the list from before the script hashed
   echo "$repo@$rev" > "$state/release"
 fi
 files=$(wc -l < "$list")
@@ -87,4 +138,4 @@ start=$(date +%s)
 export RELEASE MODEL HF_TOKEN
 tr '\n' '\0' < "$list" | xargs -0 -n 1 -P "${FETCH_JOBS:-8}" "$0" --one || true   # a failed file: the check below says so
 whole || { echo "fetch-release.sh: the release is still not whole: run the fetch again" >&2; exit 1; }
-echo "fetch-release.sh: the release is whole in $dest ($(( $(date +%s) - start )) s)"
+echo "fetch-release.sh: the release is whole in $dest, and every file's hash is right ($(( $(date +%s) - start )) s)"

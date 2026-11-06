@@ -88,8 +88,8 @@ ConnectX IP addresses with `IPS` (PCIe root 1) and `IPS2` (PCIe root 2), in the 
 
 ## Quickstart
 
-First, fetch the release on every box. Each box needs all 604 files (510.6 GB), and the fetch resumes where it left
-off if you run it again:
+First, fetch the release on every box. Each box needs all 604 files (510.6 GB). The fetch resumes where it left off
+if you run it again, checks every file against the hash Hugging Face lists for it, and fetches a wrong file again:
 
 ```bash
 docker run --rm --read-only -v ds41-release:/var/lib/gr8/release \
@@ -170,7 +170,8 @@ The image pins the release to the Hugging Face commit measured below,
 [`9807632`](https://huggingface.co/kindlingai/deepseek-v4.1-flash-exlr8-native/tree/98076325aaa2c8dfec6095536d69c47bfcfbb3dc).
 Set `RELEASE` in `.env` to fetch another (`https://huggingface.co/<org>/<repo>@<commit>`). The fetch then replaces
 each file whose content differs (it compares Hugging Face's blob ids) and keeps the rest, and `up` starts only when the
-volume holds the whole release `RELEASE` names. Engram's token map is
+volume holds the whole release `RELEASE` names, every file at its size and hash (it hashes only the files that changed
+since they were last hashed). Engram's token map is
 written when the image is built, from two files of
 [DeepSeek-V4.1-Flash-1017 at `1bae0e1`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/tree/1bae0e1088993b9b82de08f59de5be5a34e42170)
 and the release's tokenizer, and the build stops unless it matches the map the engine checks at boot.
