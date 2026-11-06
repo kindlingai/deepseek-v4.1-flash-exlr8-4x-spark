@@ -29,10 +29,11 @@ On every box:
 - The fabric, one of:
   - With `mentat` (README.md, Clustering) running on every box: `docker ps` shows the `mentat` container. Use
     `MENTAT=1` below and leave out `PEERS`, `IPS` and `IPS2`.
-  - On a switch without `mentat`: each box has one ConnectX address per PCIe root (README.md, Clustering, has the
-    netplan file). `ip -br addr show enp1s0f0np0` and `ip -br addr show enP2p1s0f0np0` show them, and
-    `ls /dev/infiniband` lists devices. You need all four boxes' 10G LAN addresses (`PEERS`, head first), their root-1
-    ConnectX addresses (`IPS`) and their root-2 addresses (`IPS2`), each list in the same order.
+  - On a switch without `mentat`: each box has one ConnectX address per PCIe root. Addresses the ports already have
+    are fine; README.md, Clustering, has a netplan file only for ports that have none.
+    `ip -br addr show enp1s0f0np0` and `ip -br addr show enP2p1s0f0np0` show them, and `ls /dev/infiniband` lists
+    devices. You need all four boxes' 10G LAN addresses (`PEERS`, head first), their root-1 ConnectX addresses (`IPS`)
+    and their root-2 addresses (`IPS2`), each list in the same order.
   - In a ring without a switch: each box's f0 port is cabled to the next box's f1 port. Use `SHAPE=ring`, `PEERS` in
     that cable order, and no `IPS` or `IPS2`.
 

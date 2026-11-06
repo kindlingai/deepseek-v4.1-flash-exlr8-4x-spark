@@ -65,9 +65,12 @@ network:
       mtu: 9000
 ```
 
-Then run `sudo netplan apply` on each box. Four boxes cabled in a ring without a switch also work, with `SHAPE=ring`
-and without `IPS` and `IPS2`: the engines find the ports by name. Cable each box's f0 port to the next box's f1 port,
-and list `PEERS` in that cable order
+Then run `sudo netplan apply` on each box. This step is optional: if each box's ConnectX port already has an address
+on each PCIe root, with MTU 9000, keep those addresses and put them in `IPS` and `IPS2` in `.env`. They do not have to
+be 10.0.0.N and 10.0.1.N.
+
+Four boxes cabled in a ring without a switch also work, with `SHAPE=ring` and without `IPS` and `IPS2`: the engines
+find the ports by name. Cable each box's f0 port to the next box's f1 port, and list `PEERS` in that cable order
 ([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/DEPLOY.md#how-the-boxes-find-each-other)).
 
 We also recommend that you run [`mentat`](https://github.com/kindlingai/mentat) (`ghcr.io/kindlingai/mentat`) for
