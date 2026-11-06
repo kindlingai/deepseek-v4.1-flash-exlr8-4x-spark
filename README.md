@@ -12,9 +12,10 @@ bit-identical to the exact model's.
 **Our view:** DeepSeek-V4.1-Flash is best used as a reviewer, and for work that will be double-checked, because it
 tends to hallucinate a lot in general. That is a model issue, not an engine or quant issue.
 
-> Not yet booted end to end: we have not yet run this image, or the Quickstart, on four boxes. The numbers below come
-> from an older gr8 with the same engine settings, on four boxes through our own test harness, not from this image. If
-> a step fails, tell us on Discord.
+> Booted end to end on four boxes on 2026-11-06, from the image `sha-661d148` and this README: ready 104 s after the
+> four containers started, and the smoke test passed 11 of 11. The 75-item quality check on it is not reported yet.
+> The numbers below still come from an older gr8 with the same engine settings, on four boxes through our own test
+> harness, not from this image. If a step fails, tell us on Discord.
 
 ![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
 
@@ -126,7 +127,8 @@ docker logs -f ds41-4x-spark     # on the head: ready at "serving: http://..."
 
 With `mentat` running, replace the three addresses with `-e MENTAT=1`. A container stops at once, and says why, if
 the release on its box is not whole. The boxes wait for each other for 10 minutes (gr8's `JOIN_TIMEOUT`, 600 s), so
-start all four within that time.
+start all four within that time. Expect about 2 minutes to ready: in our run the head printed `serving:` 104 s after
+the four containers started.
 
 The head serves an OpenAI-compatible API on port 8100. The model's name is `deepseek-v4.1-flash`:
 

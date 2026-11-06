@@ -168,7 +168,7 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 ## 4. Check that it serves
 
 - On the head, `docker logs -f ds41-4x-spark` (compose: `docker compose logs -f`) prints `serving: http://...` when the
-  cluster serves.
+  cluster serves. Expect about 2 minutes: in our run it printed this 104 s after the four containers started.
 - On every box, `docker exec ds41-4x-spark gr8 ds41 health` exits 0 when that box serves. With compose,
   `docker compose ps` shows the container as `healthy` once this check passes.
 - `docker exec ds41-4x-spark gr8 ds41 status` shows every box's state, engine and free memory.
@@ -212,7 +212,8 @@ README.md).
 
 ## 6. Not measured yet: tell the person
 
-- We have not yet booted the image on four boxes. The numbers in README.md come from an older gr8 with the same engine
+- We booted the image `sha-661d148` on four boxes on 2026-11-06: ready in 104 s, smoke test 11 of 11. The 75-item
+  quality check on it is not reported yet. The numbers in README.md still come from an older gr8 with the same engine
   settings, booted through our own test harness. The KV cache is always fp8, and the image's engine is built with
   `DS41_MX=48`.
 - `TUNE=context` is only partly measured. gr8/docs/FIRST-BOOT.md Q2 ran it on an earlier gr8 build, with 16 slots of
