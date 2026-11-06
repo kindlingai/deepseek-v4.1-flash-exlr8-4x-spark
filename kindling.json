@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "title": "DeepSeek-V4.1-Flash",
+  "variant": "exlr8 native, fp8 KV",
+  "summary": "DeepSeek-V4.1-Flash on four GB10 boxes with gr8 at TP=4: the exlr8 native release, fp8 KV, Engram, five chats at once, exact output.",
+  "model": "kindlingai/deepseek-v4.1-flash-exlr8-native",
+  "hardware": "DGX Spark (GB10)",
+  "stack": [
+    "gr8",
+    "exlr8",
+    "Engram",
+    "fp8 KV"
+  ],
+  "default_config": "tp4",
+  "configs": [
+    {
+      "id": "tp4",
+      "label": "TP=4",
+      "nodes": 4,
+      "decode": {
+        "code": 104.6,
+        "prose": 61.7,
+        "structured": 126.2
+      },
+      "prefill": [
+        {
+          "context": 8192,
+          "tps": 3197
+        },
+        {
+          "context": 32768,
+          "tps": 3721
+        },
+        {
+          "context": 131072,
+          "tps": 3741
+        }
+      ],
+      "concurrency": [
+        {
+          "streams": 1,
+          "aggregate_tps": 88.9
+        },
+        {
+          "streams": 2,
+          "aggregate_tps": 110.0
+        },
+        {
+          "streams": 4,
+          "aggregate_tps": 119.7
+        },
+        {
+          "streams": 8,
+          "aggregate_tps": 137.8
+        }
+      ],
+      "max_context": 163830,
+      "max_concurrent": 5,
+      "quality": [
+        {
+          "name": "Needle recall",
+          "value": "found at 128K"
+        }
+      ]
+    }
+  ]
+}

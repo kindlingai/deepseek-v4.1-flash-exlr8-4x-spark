@@ -1,0 +1,3 @@
+[submodule "gr8"]
+	path = gr8
+	url = https://github.com/kindlingai/gr8.git
