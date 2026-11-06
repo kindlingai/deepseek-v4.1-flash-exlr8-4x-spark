@@ -120,9 +120,10 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
    ```
 
    A failed copy is easy to miss: in our run the first rsync exited 23 after 0 s and left each volume at about 10 GB.
-   Then run the fetch on each box that got the copy: it hashes every file and fetches only the wrong ones. The copy
-   is not timed yet. A sparse copy (every file at its full size, only some bytes written) is not whole. Files copied
-   without the record are refused.
+   In our run the copy to all three at once took 260 s, about 1.9 GB/s to each box (each already held about 27 GB
+   from an earlier try). Then run the fetch on each box that got the copy: it hashes every file and fetches only the
+   wrong ones. That hash check is not timed yet. A sparse copy (every file at its full size, only some bytes written)
+   is not whole. Files copied without the record are refused.
 
    After you update the image, run the fetch once more on every box before you boot: it checks every file and
    downloads only what is wrong or missing.
