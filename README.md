@@ -149,7 +149,9 @@ In `.env` next to `compose.yaml` (see `.env.example`), or with `docker run -e`, 
 
 The image pins the release to the Hugging Face commit measured below,
 [`9807632`](https://huggingface.co/kindlingai/deepseek-v4.1-flash-exlr8-native/tree/98076325aaa2c8dfec6095536d69c47bfcfbb3dc).
-Set `RELEASE` in `.env` to fetch another (`https://huggingface.co/<org>/<repo>@<commit>`). Engram's token map is
+Set `RELEASE` in `.env` to fetch another (`https://huggingface.co/<org>/<repo>@<commit>`). The fetch then replaces
+each file whose content differs (it compares Hugging Face's blob ids) and keeps the rest, and `up` starts only when the
+volume holds the whole release `RELEASE` names. Engram's token map is
 written when the image is built, from two files of
 [DeepSeek-V4.1-Flash-1017 at `1bae0e1`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/tree/1bae0e1088993b9b82de08f59de5be5a34e42170)
 and the release's tokenizer, and the build stops unless it matches the map the engine checks at boot.

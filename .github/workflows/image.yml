@@ -33,6 +33,9 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
         with:
           submodules: recursive
+      - name: Fetch test (offline)
+        # fetch-release.sh against a stub Hugging Face: a commit change with same-size files, and a MODEL with no record
+        run: bash tests/fetch-release.sh
       - name: Free disk space
         # the CUDA devel image is about 10 GB unpacked
         run: |
