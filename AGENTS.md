@@ -16,7 +16,23 @@ On every box:
   `df -h "$(docker info --format '{{.DockerRootDir}}')"`. Or set `RELEASE_DIR` to a host directory on local NVMe,
   owned by uid 1000.
 - The box can reach Hugging Face for the fetch: `curl -sI https://huggingface.co` answers.
-- TCP ports 7340 and 7341 are open between the four boxes: no firewall blocks them.
+- TCP ports 7340 and 7341 are open between the four boxes: no firewall blocks them. Check this before the boot, while
+  nothing listens on those ports. `nc` may not be installed, so use `python3` and bash. On a peer, listen on one port:
+
+  ```bash
+  python3 -c 'import socket; s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("", 7340)); s.listen(1); print("ACCEPTED from", s.accept()[1])'
+  ```
+
+  On the head, connect to it:
+
+  ```bash
+  timeout 5 bash -c 'exec 3<>/dev/tcp/<peer-address>/7340' && echo OPEN || echo BLOCKED
+  ```
+
+  The peer prints `ACCEPTED from` and the head's address, and the head prints `OPEN`. The listener stops after one
+  connection, so start it again for each test. Do the same for port 7341, for each of the three peers, on the `PEERS`
+  addresses and, if you set them, the `IPS` and `IPS2` addresses. Then once the other way, from a peer to the head.
+  `BLOCKED` means a firewall, a wrong address, or no listener on the other box.
 - No other model runs on the box: `docker ps` and `nvidia-smi` show none. The launcher refuses to start next to
   another g6m4 engine on the box.
 - Proactive memory compaction is off: `sysctl vm.compaction_proactiveness` prints 0. If not, as root, once:
