@@ -212,8 +212,8 @@ README.md).
 
 ## 6. Not measured yet: tell the person
 
-- We booted the image `sha-661d148` on four boxes on 2026-11-06: ready in 104 s, smoke test 11 of 11. The 75-item
-  quality check on it is not reported yet. The numbers in README.md still come from an older gr8 with the same engine
+- We booted the image `sha-661d148` on four boxes on 2026-11-06: ready in 104 s, smoke test 11 of 11, 72 of 75 right
+  on the 75-item check in fast mode. The speed numbers in README.md still come from an older gr8 with the same engine
   settings, booted through our own test harness. The KV cache is always fp8, and the image's engine is built with
   `DS41_MX=48`.
 - `TUNE=context` is only partly measured. gr8/docs/FIRST-BOOT.md Q2 ran it on an earlier gr8 build, with 16 slots of

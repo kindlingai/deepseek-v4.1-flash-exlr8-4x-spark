@@ -13,9 +13,9 @@ bit-identical to the exact model's.
 tends to hallucinate a lot in general. That is a model issue, not an engine or quant issue.
 
 > Booted end to end on four boxes on 2026-11-06, from the image `sha-661d148` and this README: ready 104 s after the
-> four containers started, and the smoke test passed 11 of 11. The 75-item quality check on it is not reported yet.
-> The numbers below still come from an older gr8 with the same engine settings, on four boxes through our own test
-> harness, not from this image. If a step fails, tell us on Discord.
+> four containers started, the smoke test passed 11 of 11, and 72 of 75 right on the 75-item check in fast mode, the
+> default, as in the speed row below. The speed numbers below still come from an older gr8 with the same engine
+> settings, on four boxes through our own test harness, not from this image. If a step fails, tell us on Discord.
 
 ![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
 
