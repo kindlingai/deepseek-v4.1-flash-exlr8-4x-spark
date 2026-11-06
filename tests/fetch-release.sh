@@ -11,6 +11,7 @@
 #      --check fails and names them, the fetch fetches those two again and nothing else
 #   5. --check hashes only the files that changed since they were last hashed
 #   6. a record from before the script hashed (no hashes): --check fails, the fetch hashes every file and fetches none
+#   7. a download that stops part way: the fetch fails and keeps the part, and the next fetch completes the file
 set -euo pipefail
 script=$(cd "$(dirname "$0")/.." && pwd)/fetch-release.sh
 t=$(mktemp -d -t ds41-fetch-test.XXXXXX)
@@ -18,19 +19,26 @@ export HF=$t/hf
 mkdir -p "$t/bin" "$HF"
 cat > "$t/bin/curl" <<'STUB'
 #!/bin/bash
-# The API URL prints $HF/<rev>.json; a resolve URL copies $HF/<rev>/<path> to the -o file and logs it
-out= url=
+# The API URL prints $HF/<rev>.json; a resolve URL copies $HF/<rev>/<path> to the -o file and logs it, with -C - from
+# the bytes the file already holds (logged as "path offset")
+out= url= cont=
 while [ $# -gt 0 ]; do
   case $1 in
     -o) out=$2; shift 2 ;;
-    -H|-C|--retry|--retry-delay) shift 2 ;;
+    -C) cont=$2; shift 2 ;;
+    -H|--retry|--retry-delay) shift 2 ;;
     -*) shift ;;
     *) url=$1; shift ;;
   esac
 done
 case $url in
   */api/models/*) r=${url##*/revision/}; cat "$HF/${r%%\?*}.json" ;;
-  */resolve/*) p=${url#*/resolve/}; echo "$p" >> "$HF/fetched.log"; cat "$HF/$p" > "$out" ;;
+  */resolve/*) p=${url#*/resolve/}; echo "$p" >> "$HF/fetched.log"
+    from=0; [ "$cont" != - ] || [ ! -e "$out" ] || from=$(stat -c %s "$out")
+    [ "$from" != 0 ] || : > "$out"
+    echo "$p $from" >> "$HF/resumed.log"
+    if [ -e "$HF/stop" ]; then tail -c +$((from + 1)) "$HF/$p" | head -c 1 >> "$out"; exit 18; fi   # "partial file"
+    tail -c +$((from + 1)) "$HF/$p" >> "$out" ;;
   *) echo "curl stub: unexpected URL $url" >&2; exit 99 ;;
 esac
 STUB
@@ -124,5 +132,17 @@ rc=0; err=$("$script" --check 2>&1) || rc=$?
 [ "$(sort "$HF/hashed.log" | uniq -c | awk '{ print $2 "=" $1 }' | tr '\n' ' ')" = "sha1sum=3 sha256sum=1 " ] ||
   fail "hashed: $(sort "$HF/hashed.log" | uniq -c | tr '\n' ' ') (want each of the 4 files once)"
 [ ! -e "$state/files.tsv" ] || fail "files.tsv, the old record, is still there"
+
+# 7
+: > "$MODEL/weights.bin"                                         # 0 of its 3 bytes
+touch "$HF/stop" && : > "$HF/resumed.log"
+! "$script" > /dev/null 2>&1 || fail "fetch passed with a download that stopped"
+[ "$(cat "$MODEL/weights.bin")" = N ] && [ "$(cat "$HF/resumed.log")" = "$B/weights.bin 0" ] ||
+  fail "after the stopped download: weights.bin $(cat "$MODEL/weights.bin"),"\
+    "requests $(tr '\n' ' ' < "$HF/resumed.log")"
+mv "$HF/stop" "$t/stop.done" && : > "$HF/resumed.log"
+"$script" > /dev/null || fail "fetch after the stopped download"
+[ "$(cat "$MODEL/weights.bin")" = NEW ] && [ "$(cat "$HF/resumed.log")" = "$B/weights.bin 1" ] ||
+  fail "after the next fetch: weights.bin $(cat "$MODEL/weights.bin"), requests $(tr '\n' ' ' < "$HF/resumed.log")"
 
 echo "fetch-release test OK ($t)"

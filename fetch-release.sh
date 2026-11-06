@@ -61,6 +61,8 @@ whole() {
     [ "$(stat -c %s "$dest/$path" 2>/dev/null)" = "$size" ] ||
       { echo "fetch-release.sh: $path is missing or not at its size" >&2; return 1; }
   done < "$list"
+  touch "$hashed" 2> /dev/null ||
+    echo "fetch-release.sh: cannot write $hashed: every check hashes every file again" >&2
   tr '\n' '\0' < "$list" | xargs -0 -n 1 -P "${FETCH_JOBS:-8}" "$0" --verify || return 1   # then the hashes
 }
 
@@ -85,7 +87,8 @@ one() {  # $1 = "size TAB hash TAB path": fetch one file unless it is already wh
   elif [ "$have" -gt "$size" ]; then
     rm -f -- "$dest/$path"                            # longer than the release's file: start it again
   fi
-  get "$path" "$size" && verify "$1" && return 0
+  get "$path" "$size" || return 1                     # a stopped download keeps its part: the next fetch resumes it
+  verify "$1" && return 0
   rm -f -- "$dest/$path"                              # a resumed file can carry a wrong first part: once more, whole
   get "$path" "$size" && verify "$1"
 }
@@ -130,7 +133,7 @@ if [ "$(cat "$state/release" 2>/dev/null)" != "$repo@$rev" ] || [ ! -s "$list" ]
 fi
 files=$(wc -l < "$list")
 want=$(awk -F'\t' '{ s += $1 } END { printf "%.0f", s }' "$list")
-have=$(du -s --block-size=1 --apparent-size "$dest" | cut -f1)
+have=$(du -s --block-size=1 "$dest" | cut -f1)        # the space in use: a sparse file counts what it holds
 free=$(df --output=avail --block-size=1 "$dest" | tail -1)
 echo "fetch-release.sh: $repo@$rev, $files files, $((want / 1000000000)) GB; $((have / 1000000000)) GB here, $((free / 1000000000)) GB free"
 [ $((want - have)) -lt "$free" ] || { echo "fetch-release.sh: not enough free space in $dest" >&2; exit 1; }
