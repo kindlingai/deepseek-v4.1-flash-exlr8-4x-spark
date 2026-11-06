@@ -1,0 +1,77 @@
+# DeepSeek-V4.1-Flash on four GB10 boxes (DGX Spark) at TP=4: gr8, the exlr8 native release, Engram, fp8 KV.
+# Run this file on all four boxes with the same .env (PEERS: the four LAN addresses, head first). The head serves on
+# port 8100.
+#
+#   docker compose run --rm gr8 fetch   # once on every box: the whole release, 510.6 GB, into the release volume
+#   docker compose up -d                # pulls the image (CI publishes it) and joins the other three boxes
+#   docker compose up -d --build        # or builds the image here from the gr8 submodule
+#   docker compose logs -f              # the supervisor, ready when it prints that the cluster serves
+#   docker compose exec gr8 gr8 ds41 smoke    # on the head
+#
+# .env (.env.example) sets PEERS and overrides the settings below. Compose reads it from this file's directory.
+name: ds41-4x-spark
+services:
+  gr8:
+    build:
+      context: .
+    image: ${IMAGE:-ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest}
+    container_name: ds41-4x-spark
+    # The knobs (CAP, SESS, EXACT, MENTAT; README.md) and any other gr8 option come from .env. Unset, the image's
+    # defaults apply (Dockerfile).
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # the container's own paths, so a line in .env cannot point the launcher outside the volumes
+      - GR8_WORK_DIR=/var/lib/gr8/home
+      - MODEL=/var/lib/gr8/release/deepseek-v4.1-flash-exlr8-native
+    # The front end (8100), the supervisor's and engine's control ports (7340, 7341) and the ConnectX fabric on the box's
+    # own interfaces.
+    network_mode: host
+    # The launcher refuses to start next to another g6m4 on the box, and sees one started outside the container only in
+    # the host's process list.
+    pid: host
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # The ConnectX ports: the four engines exchange activations over RDMA.
+    devices:
+      - /dev/infiniband:/dev/infiniband
+    ulimits:
+      memlock: -1
+      # A crash must not dump core: the engine maps ~90 GB, and the dumping thread holds the NVIDIA driver's lock the
+      # whole time it writes, which can leave the box unreachable until a power cycle.
+      core: 0
+    cap_drop: [ALL]
+    cap_add: [IPC_LOCK]
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g,mode=1777
+    oom_score_adj: 1000
+    init: true
+    stop_grace_period: 30s
+    volumes:
+      # The release, 510.6 GB, read in place: every box holds all of it (fetch-release.sh). Set RELEASE_DIR to a host
+      # directory owned by uid 1000 on local NVMe to keep it outside docker.
+      - ${RELEASE_DIR:-release}:/var/lib/gr8/release
+      # Logs and state: out/supervisor.log, g6m4.r0.err, shim.log, front.log, and Engram's token map (engram/).
+      - ${GR8_HOME_DIR:-home}:/var/lib/gr8/home
+    healthcheck:
+      test: ["CMD", "/opt/ds41-4x/bin/gr8", "ds41", "health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60m
+    restart: on-failure
+
+# Named as in README.md's docker run commands, so compose and docker run share the 510.6 GB release.
+volumes:
+  release:
+    name: ds41-release
+  home:
+    name: ds41-home

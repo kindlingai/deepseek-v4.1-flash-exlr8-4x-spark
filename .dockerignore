@@ -1,0 +1,9 @@
+# The build context is the repo root. The Dockerfile's COPY lines say what goes in; this keeps the upload small.
+.git
+gr8/.git
+**/target
+.env
+**/__pycache__
+.DS_Store
+docs
+kindling.json
