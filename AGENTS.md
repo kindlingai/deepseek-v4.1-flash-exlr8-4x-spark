@@ -170,8 +170,8 @@ README.md).
 
 ## 6. Not measured yet: tell the person
 
-- The image has not been booted yet. The numbers in README.md come from an older gr8 with the same engine settings,
-  booted through our own test harness. The KV cache is always fp8, and the image's engine is built with
+- We have not yet booted the image on four boxes. The numbers in README.md come from an older gr8 with the same engine
+  settings, booted through our own test harness. The KV cache is always fp8, and the image's engine is built with
   `DS41_MX=48`.
 - `TUNE=context` is only partly measured. gr8/docs/FIRST-BOOT.md Q2 ran it on an earlier gr8 build, with 16 slots of
   1M each, at most three 1M chats at once, and only two of the six switches. Speed at 1M is not measured. On that

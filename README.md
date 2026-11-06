@@ -12,10 +12,9 @@ bit-identical to the exact model's.
 **Our view:** DeepSeek-V4.1-Flash is best used as a reviewer, and for work that will be double-checked, because it
 tends to hallucinate a lot in general. That is a model issue, not an engine or quant issue.
 
-> Not yet run end to end. The image with fast mode as its default has not been built or booted yet, and CI has not run
-> on it. The numbers below come from an older gr8 with the same engine settings, on four boxes through our own test
-> harness, not from this image. This recipe's Quickstart has not yet been run on four clean boxes. If a step fails, tell
-> us on Discord.
+> Not yet booted end to end: we have not yet run this image, or the Quickstart, on four boxes. The numbers below come
+> from an older gr8 with the same engine settings, on four boxes through our own test harness, not from this image. If
+> a step fails, tell us on Discord.
 
 ![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
 
