@@ -12,9 +12,10 @@ bit-identical to the exact model's.
 **Our view:** DeepSeek-V4.1-Flash is best used as a reviewer, and for work that will be double-checked, because it
 tends to hallucinate a lot in general. That is a model issue, not an engine or quant issue.
 
-> Not yet booted end to end: we have not yet run this image, or the Quickstart, on four boxes. The numbers below come
-> from an older gr8 with the same engine settings, on four boxes through our own test harness, not from this image. If
-> a step fails, tell us on Discord.
+> Booted end to end on four boxes on 2026-11-06, from the image `sha-661d148` and this README: ready 104 s after the
+> four containers started, the smoke test passed 11 of 11, and 72 of 75 right on the 75-item check in fast mode, the
+> default, as in the speed row below. The speed numbers below still come from an older gr8 with the same engine
+> settings, on four boxes through our own test harness, not from this image. If a step fails, tell us on Discord.
 
 ![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
 
@@ -65,9 +66,12 @@ network:
       mtu: 9000
 ```
 
-Then run `sudo netplan apply` on each box. Four boxes cabled in a ring without a switch also work, with `SHAPE=ring`
-and without `IPS` and `IPS2`: the engines find the ports by name. Cable each box's f0 port to the next box's f1 port,
-and list `PEERS` in that cable order
+Then run `sudo netplan apply` on each box. This step is optional: if each box's ConnectX port already has an address
+on each PCIe root, with MTU 9000, keep those addresses and put them in `IPS` and `IPS2` in `.env`. They do not have to
+be 10.0.0.N and 10.0.1.N.
+
+Four boxes cabled in a ring without a switch also work, with `SHAPE=ring` and without `IPS` and `IPS2`: the engines
+find the ports by name. Cable each box's f0 port to the next box's f1 port, and list `PEERS` in that cable order
 ([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/DEPLOY.md#how-the-boxes-find-each-other)).
 
 We also recommend that you run [`mentat`](https://github.com/kindlingai/mentat) (`ghcr.io/kindlingai/mentat`) for
@@ -85,13 +89,27 @@ ConnectX IP addresses with `IPS` (PCIe root 1) and `IPS2` (PCIe root 2), in the 
 
 ## Quickstart
 
-First, fetch the release on every box. Each box needs all 604 files (510.6 GB), and the fetch resumes where it left
-off if you run it again:
+First, fetch the release on every box. Each box needs all 604 files (510.6 GB). The fetch resumes where it left off
+if you run it again, checks every file against the hash Hugging Face lists for it, and fetches a wrong file again:
 
 ```bash
 docker run --rm --read-only -v ds41-release:/var/lib/gr8/release \
   ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
 ```
+
+The download is the slow part. In our run one box alone fetched the whole 510.6 GB release in 74 minutes (4,420 s as
+the fetch reported it, 0.92 Gb/s on average). Four boxes at once got about 0.25 Gb/s each, about 1 Gb/s in all: at
+that rate the release takes about 4.5 hours on four boxes (computed, not timed). So fetch on one box, then copy the
+whole `ds41-release` volume, the release and the `.fetch-*` record beside it, to the other three over the ConnectX
+ports. In our run that copy, to all three at once, took about 4.5 minutes (about 1.9 GB/s to each box): one fetch and
+the copy took about 80 minutes in all, against about 4.5 hours for four fetches at once. Check each copy: the copy
+command exited 0, and the volume holds at least 510.6 GB (AGENTS.md, step 1, has the command). Then run the fetch on
+each of them: it hashes every file and fetches only the wrong ones. We have not timed that hash check yet. A sparse
+copy, with every file at its full size but only some of its bytes written, is not the whole release; the fetch finds
+those files and fetches them again.
+
+After you update the image, run the fetch once more on every box: it checks every file and downloads only what is
+wrong or missing.
 
 Then run the published image on all four boxes with the same settings. Without `mentat`, this names the boxes as in
 the netplan example above:
@@ -109,7 +127,8 @@ docker logs -f ds41-4x-spark     # on the head: ready at "serving: http://..."
 
 With `mentat` running, replace the three addresses with `-e MENTAT=1`. A container stops at once, and says why, if
 the release on its box is not whole. The boxes wait for each other for 10 minutes (gr8's `JOIN_TIMEOUT`, 600 s), so
-start all four within that time.
+start all four within that time. Expect about 2 minutes to ready: in our run the head printed `serving:` 104 s after
+the four containers started.
 
 The head serves an OpenAI-compatible API on port 8100. The model's name is `deepseek-v4.1-flash`:
 
@@ -167,7 +186,8 @@ The image pins the release to the Hugging Face commit measured below,
 [`9807632`](https://huggingface.co/kindlingai/deepseek-v4.1-flash-exlr8-native/tree/98076325aaa2c8dfec6095536d69c47bfcfbb3dc).
 Set `RELEASE` in `.env` to fetch another (`https://huggingface.co/<org>/<repo>@<commit>`). The fetch then replaces
 each file whose content differs (it compares Hugging Face's blob ids) and keeps the rest, and `up` starts only when the
-volume holds the whole release `RELEASE` names. Engram's token map is
+volume holds the whole release `RELEASE` names, with every file at its size and hash. The check hashes only the files
+that changed since they were last hashed. Engram's token map is
 written when the image is built, from two files of
 [DeepSeek-V4.1-Flash-1017 at `1bae0e1`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/tree/1bae0e1088993b9b82de08f59de5be5a34e42170)
 and the release's tokenizer, and the build stops unless it matches the map the engine checks at boot.

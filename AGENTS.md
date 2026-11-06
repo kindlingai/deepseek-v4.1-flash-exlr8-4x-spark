@@ -16,7 +16,24 @@ On every box:
   `df -h "$(docker info --format '{{.DockerRootDir}}')"`. Or set `RELEASE_DIR` to a host directory on local NVMe,
   owned by uid 1000.
 - The box can reach Hugging Face for the fetch: `curl -sI https://huggingface.co` answers.
-- TCP ports 7340 and 7341 are open between the four boxes: no firewall blocks them.
+- TCP ports 7340 and 7341 are open between the four boxes: no firewall blocks them. Check this before the boot, while
+  nothing listens on those ports. `nc` may not be installed, so use `python3` and bash. On a peer, listen on one port:
+
+  ```bash
+  python3 -c 'import socket; s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("", 7340)); s.listen(1); print("ACCEPTED from", s.accept()[1])'
+  ```
+
+  On the head, connect to it:
+
+  ```bash
+  timeout 5 bash -c 'exec 3<>/dev/tcp/<peer-address>/7340' && echo OPEN || echo BLOCKED
+  ```
+
+  The peer prints `ACCEPTED from` and the head's address, and the head prints `OPEN`. The listener stops after one
+  connection, so start it again for each test. Do the same for port 7341, for each of the three peers, on the `PEERS`
+  addresses and, if you set them, the `IPS` and `IPS2` addresses. Then test once the other way: listen on the head and
+  connect from a peer.
+  `BLOCKED` means a firewall, a wrong address, or no listener on the other box.
 - No other model runs on the box: `docker ps` and `nvidia-smi` show none. The launcher refuses to start next to
   another g6m4 engine on the box.
 - Proactive memory compaction is off: `sysctl vm.compaction_proactiveness` prints 0. If not, as root, once:
@@ -29,10 +46,11 @@ On every box:
 - The fabric, one of:
   - With `mentat` (README.md, Clustering) running on every box: `docker ps` shows the `mentat` container. Use
     `MENTAT=1` below and leave out `PEERS`, `IPS` and `IPS2`.
-  - On a switch without `mentat`: each box has one ConnectX address per PCIe root (README.md, Clustering, has the
-    netplan file). `ip -br addr show enp1s0f0np0` and `ip -br addr show enP2p1s0f0np0` show them, and
-    `ls /dev/infiniband` lists devices. You need all four boxes' 10G LAN addresses (`PEERS`, head first), their root-1
-    ConnectX addresses (`IPS`) and their root-2 addresses (`IPS2`), each list in the same order.
+  - On a switch without `mentat`: each box has one ConnectX address per PCIe root. Addresses the ports already have
+    are fine; README.md, Clustering, has a netplan file only for ports that have none.
+    `ip -br addr show enp1s0f0np0` and `ip -br addr show enP2p1s0f0np0` show them, and `ls /dev/infiniband` lists
+    devices. You need all four boxes' 10G LAN addresses (`PEERS`, head first), their root-1 ConnectX addresses (`IPS`)
+    and their root-2 addresses (`IPS2`), each list in the same order.
   - In a ring without a switch: each box's f0 port is cabled to the next box's f1 port. Use `SHAPE=ring`, `PEERS` in
     that cable order, and no `IPS` or `IPS2`.
 
@@ -73,7 +91,7 @@ Every knob:
 | `RELEASE_DIR`, `GR8_HOME_DIR` | compose only: host directories in place of the volumes `ds41-release` and `ds41-home`, owned by uid 1000 | the named volumes |
 | `IMAGE` | compose only: a pinned image, e.g. `ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:sha-<commit>` | `:latest` |
 | `RELEASE` | the release to fetch, `https://huggingface.co/<org>/<repo>@<commit>` | the commit README.md measured |
-| `FETCH_JOBS` | files the fetch takes at once | `8` |
+| `FETCH_JOBS` | files the fetch, and the check before each boot, take at once | `8` |
 | `HF_TOKEN` | sent only to Hugging Face, for a gated or private repo | none |
 | `EXTRA_ENV` | more engine settings, `NAME=value` pairs separated by spaces | none |
 
@@ -81,13 +99,34 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 
 ## 3. Boot
 
-1. On every box, fetch the release: 604 files, 510.6 GB. It resumes if you run it again. Wait until it has finished
-   on all four boxes: the container refuses to start while the release on its box is not whole.
+1. On every box, fetch the release: 604 files, 510.6 GB. It resumes if you run it again, checks every file's hash, and
+   fetches a wrong file again. Wait until it has finished on all four boxes: the container refuses to start while the
+   release on its box is not whole.
 
    ```bash
    docker run --rm --read-only -v ds41-release:/var/lib/gr8/release \
      ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
    ```
+
+   The download is slow. In our run one box alone fetched the whole release in 74 minutes (4,420 s as the fetch
+   reported it, 0.92 Gb/s on average). Four boxes at once got about 0.25 Gb/s each, which is about 4.5 hours
+   (computed, not timed). So fetch on one box, then copy the whole `ds41-release` volume (the release and the
+   `.fetch-*` record beside it) to the other three over the ConnectX ports. Check each copy before you run the fetch
+   on that box: the copy command (rsync, for example) must exit 0, and the volume must hold at least 510597801105
+   bytes:
+
+   ```bash
+   sudo du -sb "$(docker volume inspect ds41-release --format '{{ .Mountpoint }}')"
+   ```
+
+   A failed copy is easy to miss: in our run the first rsync exited 23 after 0 s and left each volume at about 10 GB.
+   In our run the copy to all three at once took 260 s, about 1.9 GB/s to each box (each already held about 27 GB
+   from an earlier try). Then run the fetch on each box that got the copy: it hashes every file and fetches only the
+   wrong ones. That hash check is not timed yet. A sparse copy (every file at its full size, only some bytes written)
+   is not whole. Files copied without the record are refused.
+
+   After you update the image, run the fetch once more on every box before you boot: it checks every file and
+   downloads only what is wrong or missing.
 
 2. Optional, on every box: print the settings the boot will use, and compare the `CAP`, `SESS` and `EXTRA_ENV` lines
    with the `TUNE` table above. The output goes to stdout. With `mentat`, pass `-e MENTAT=1` in place of `PEERS`.
@@ -129,7 +168,7 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 ## 4. Check that it serves
 
 - On the head, `docker logs -f ds41-4x-spark` (compose: `docker compose logs -f`) prints `serving: http://...` when the
-  cluster serves.
+  cluster serves. Expect about 2 minutes: in our run it printed this 104 s after the four containers started.
 - On every box, `docker exec ds41-4x-spark gr8 ds41 health` exits 0 when that box serves. With compose,
   `docker compose ps` shows the container as `healthy` once this check passes.
 - `docker exec ds41-4x-spark gr8 ds41 status` shows every box's state, engine and free memory.
@@ -154,6 +193,9 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 |---|---|
 | `PEERS=...: want the four boxes' LAN addresses, head first, the same on every box (or MENTAT=1)` | set `PEERS` to four addresses, the same list on every box, or `MENTAT=1` |
 | `ds41-4x: the release in ... is not whole: run the fetch first, on every box` | run the fetch (step 1) on that box. With compose, the container restarts and stops again until the fetch is done |
+| `fetch-release.sh: no record that ... holds ..., with each file's hash (run the fetch)` | the volume holds another release, or an image from before the fetch checked hashes fetched it: run the fetch (step 1). It hashes the files that are there and fetches only the wrong or missing ones |
+| `fetch-release.sh: ... holds files but there is no record of their release ...: empty it first` | the volume holds files the fetch did not put there: copy the `.fetch-*` record beside the release with them (step 1), or empty the volume and fetch |
+| `MISMATCH <file>: ...` | that file has its full size but not the content the release lists (a sparse or damaged copy): run the fetch (step 1), which fetches it again |
 | `TUNE=...: want speed ..., context ... or quality ...` | use one of the three values |
 | `EXACT=...: EXACT is now TUNE ...` | remove `EXACT`; set `TUNE=quality` for the exact model |
 | `SESS=...: want a number of chats, 1 or more` | set `SESS` to a whole number from 1 to 32, no leading zero |
@@ -170,7 +212,8 @@ README.md).
 
 ## 6. Not measured yet: tell the person
 
-- We have not yet booted the image on four boxes. The numbers in README.md come from an older gr8 with the same engine
+- We booted the image `sha-661d148` on four boxes on 2026-11-06: ready in 104 s, smoke test 11 of 11, 72 of 75 right
+  on the 75-item check in fast mode. The speed numbers in README.md still come from an older gr8 with the same engine
   settings, booted through our own test harness. The KV cache is always fp8, and the image's engine is built with
   `DS41_MX=48`.
 - `TUNE=context` is only partly measured. gr8/docs/FIRST-BOOT.md Q2 ran it on an earlier gr8 build, with 16 slots of
