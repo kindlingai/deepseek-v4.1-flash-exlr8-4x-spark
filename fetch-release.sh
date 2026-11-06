@@ -9,7 +9,7 @@
 # the content) for a small one. The fetch hashes each file once it has it and fetches it again, from the start, when
 # the hash is wrong: a copy of the right size can still be wrong, a sparse copy with holes for one. Each file whose hash
 # is right is recorded with its size, change time and inode, so later checks hash only the files that changed since.
-# A file that changes while it is hashed is hashed again, 3 times at most; after that it counts as wrong.
+# A file that changes while it is hashed is hashed again, once; when it changes again, it counts as wrong (MISMATCH).
 #
 # When RELEASE changes, the fetch deletes every file whose blob id differs from the new release's, or that the new
 # release does not have, and fetches it again; files with the same content stay. A MODEL that holds files but has no
@@ -37,7 +37,7 @@ auth=()
 verify() {  # $1 = "size TAB hash TAB path": 0 when the file has that size and that hash
   local size sum path sig got try
   IFS=$'\t' read -r size sum path <<< "$1"
-  for try in 1 2 3; do
+  for try in 1 2; do
     sig=$(stat -c '%s %.9Z %i' "$dest/$path" 2>/dev/null) || { echo "$path: missing" >&2; return 1; }
     [ "${sig%% *}" = "$size" ] || { echo "$path: ${sig%% *} bytes, want $size" >&2; return 1; }
     grep -qFx -- "$sig"$'\t'"$sum"$'\t'"$path" "$hashed" 2>/dev/null && return 0   # hashed before, unchanged since
@@ -48,7 +48,7 @@ verify() {  # $1 = "size TAB hash TAB path": 0 when the file has that size and t
     esac
     # A file that changed while it was hashed no longer holds the bytes that were hashed: hash it again
     [ "$(stat -c '%s %.9Z %i' "$dest/$path" 2>/dev/null)" != "$sig" ] || break
-    [ "$try" != 3 ] || { echo "$path: changed while it was hashed, 3 times" >&2; return 1; }
+    [ "$try" != 2 ] || { echo "MISMATCH $path: it changed while it was hashed, twice" >&2; return 1; }
   done
   [ "$got" = "$sum" ] || { echo "MISMATCH $path: ${got#*:}, want ${sum#*:} (${sum%%:*})" >&2; return 1; }
   echo "OK $path"

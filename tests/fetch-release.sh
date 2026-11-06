@@ -12,8 +12,8 @@
 #   5. --check hashes only the files that changed since they were last hashed
 #   6. a record from before the script hashed (no hashes): --check fails, the fetch hashes every file and fetches none
 #   7. a download that stops part way: the fetch fails and keeps the part, and the next fetch completes the file
-#   8. a file that changes while it is hashed: --check hashes it again; when it keeps changing, --check fails; when it
-#      changed to wrong bytes, --check fails on the hash and the fetch fetches it again
+#   8. a file that changes while it is hashed: --check hashes it again, once; when it changes again, --check fails;
+#      when it changed to wrong bytes, --check fails on the hash and the fetch fetches it again
 set -euo pipefail
 script=$(cd "$(dirname "$0")/.." && pwd)/fetch-release.sh
 t=$(mktemp -d -t ds41-fetch-test.XXXXXX)
@@ -162,8 +162,8 @@ STUB
 chmod +x "$t/bin/sha256sum"
 printf NEW > "$HF/mutate" && printf NEW > "$MODEL/weights.bin" && : > "$HF/hashed.log"
 rc=0; err=$("$script" --check 2>&1) || rc=$?
-[ "$rc" = 1 ] && [ "$err" = "weights.bin: changed while it was hashed, 3 times" ] &&
-  [ "$(grep -c sha256sum "$HF/hashed.log")" = 3 ] ||
+[ "$rc" = 1 ] && [ "$err" = "MISMATCH weights.bin: it changed while it was hashed, twice" ] &&
+  [ "$(grep -c sha256sum "$HF/hashed.log")" = 2 ] ||
   fail "check of a file that changes at every hash: exit $rc, hashed $(grep -c sha256sum "$HF/hashed.log") times: $err"
 mv "$HF/mutate" "$t/mutate.done"
 printf BAD > "$HF/mutate-once" && printf NEW > "$MODEL/weights.bin" && : > "$HF/hashed.log"
