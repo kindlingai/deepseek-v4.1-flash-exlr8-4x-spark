@@ -109,7 +109,7 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
    ```
 
    The download is slow. In our run one box alone fetched the whole release in 74 minutes (4,420 s as the fetch
-   reported it, 0.92 Gb/s on average). Four boxes at once got about 0.25 Gb/s each, which is about 4.5 hours
+   reported it, 0.92 Gb/s on average). Four boxes at once got about 0.2 Gb/s each, which is about 5.7 hours
    (computed, not timed). So fetch on one box, then copy the whole `ds41-release` volume (the release and the
    `.fetch-*` record beside it) to the other three over the ConnectX ports. Check each copy before you run the fetch
    on that box: the copy command (rsync, for example) must exit 0, and the volume must hold at least 510597801105

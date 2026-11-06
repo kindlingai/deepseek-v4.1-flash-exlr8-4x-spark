@@ -98,11 +98,11 @@ docker run --rm --read-only -v ds41-release:/var/lib/gr8/release \
 ```
 
 The download is the slow part. In our run one box alone fetched the whole 510.6 GB release in 74 minutes (4,420 s as
-the fetch reported it, 0.92 Gb/s on average). Four boxes at once got about 0.25 Gb/s each, about 1 Gb/s in all: at
-that rate the release takes about 4.5 hours on four boxes (computed, not timed). So fetch on one box, then copy the
+the fetch reported it, 0.92 Gb/s on average). Four boxes at once got about 0.2 Gb/s each, about 0.8 Gb/s in all: at
+that rate the release takes about 5.7 hours on four boxes (computed, not timed). So fetch on one box, then copy the
 whole `ds41-release` volume, the release and the `.fetch-*` record beside it, to the other three over the ConnectX
 ports. In our run that copy, to all three at once, took about 4.5 minutes (about 1.9 GB/s to each box): one fetch and
-the copy took about 80 minutes in all, against about 4.5 hours for four fetches at once. Check each copy: the copy
+the copy took about 80 minutes in all, against about 5.7 hours for four fetches at once. Check each copy: the copy
 command exited 0, and the volume holds at least 510.6 GB (AGENTS.md, step 1, has the command). Then run the fetch on
 each of them: it hashes every file and fetches only the wrong ones. We have not timed that hash check yet. A sparse
 copy, with every file at its full size but only some of its bytes written, is not the whole release; the fetch finds
