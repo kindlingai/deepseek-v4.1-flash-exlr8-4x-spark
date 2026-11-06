@@ -107,6 +107,11 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
      ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
    ```
 
+   If one box already holds the whole release, copy the whole `ds41-release` volume (the release and the `.fetch-*`
+   record beside it) to the other boxes instead, then run the fetch on each of them: it hashes every file and fetches
+   only the wrong ones. A sparse copy (every file at its full size, only some bytes written) is not whole. Files
+   copied without the record are refused.
+
 2. Optional, on every box: print the settings the boot will use, and compare the `CAP`, `SESS` and `EXTRA_ENV` lines
    with the `TUNE` table above. The output goes to stdout. With `mentat`, pass `-e MENTAT=1` in place of `PEERS`.
 
@@ -173,6 +178,7 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 | `PEERS=...: want the four boxes' LAN addresses, head first, the same on every box (or MENTAT=1)` | set `PEERS` to four addresses, the same list on every box, or `MENTAT=1` |
 | `ds41-4x: the release in ... is not whole: run the fetch first, on every box` | run the fetch (step 1) on that box. With compose, the container restarts and stops again until the fetch is done |
 | `fetch-release.sh: no record that ... holds ..., with each file's hash (run the fetch)` | the volume holds another release, or an image from before the fetch checked hashes fetched it: run the fetch (step 1). It hashes the files that are there and fetches only the wrong or missing ones |
+| `fetch-release.sh: ... holds files but there is no record of their release ...: empty it first` | the volume holds files the fetch did not put there: copy the `.fetch-*` record beside the release with them (step 1), or empty the volume and fetch |
 | `MISMATCH <file>: ...` | that file has its full size but not the content the release lists (a sparse or damaged copy): run the fetch (step 1), which fetches it again |
 | `TUNE=...: want speed ..., context ... or quality ...` | use one of the three values |
 | `EXACT=...: EXACT is now TUNE ...` | remove `EXACT`; set `TUNE=quality` for the exact model |
