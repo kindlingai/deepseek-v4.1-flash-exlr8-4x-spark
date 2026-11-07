@@ -9,6 +9,12 @@ _**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg
 fp8 KV, Engram and 32 chats at once, in fast mode by default. Fast mode writes faster, and its output is not
 bit-identical to the exact model's.
 
+![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
+
+*The card is one `gr8` bench run in fast mode on 2026-11-05: gr8 `main` at `35a8f1c` with the change that became
+#359, built with `DS41_MX=48` (see More numbers). A recording of several chats at once, at this recipe's defaults, is
+still to come.*
+
 **Our view:** DeepSeek-V4.1-Flash is best used as a reviewer, and for work that will be double-checked, because it
 tends to hallucinate a lot in general. That is a model issue, not an engine or quant issue.
 
@@ -16,12 +22,6 @@ tends to hallucinate a lot in general. That is a model issue, not an engine or q
 > four containers started, the smoke test passed 11 of 11, and 72 of 75 right on the 75-item check in fast mode, the
 > default, as in the speed row below. The speed numbers below still come from an older gr8 with the same engine
 > settings, on four boxes through our own test harness, not from this image. If a step fails, tell us on Discord.
-
-![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
-
-*The card is one `gr8` bench run in fast mode on 2026-11-05: gr8 `main` at `35a8f1c` with the change that became
-#359, built with `DS41_MX=48` (see More numbers). A recording of several chats at once, at this recipe's defaults, is
-still to come.*
 
 Pick what to prioritize with one setting, `TUNE`, the same on all four boxes:
 
