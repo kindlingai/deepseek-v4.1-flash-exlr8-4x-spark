@@ -101,12 +101,30 @@ The download is the slow part. In our run one box alone fetched the whole 510.6 
 the fetch reported it, 0.92 Gb/s on average). Four boxes at once got about 0.2 Gb/s each on the three boxes we logged
 (the fourth was not logged), about 0.8 Gb/s in all if the fourth matched: at that rate the release takes about 5.7 hours
 on four boxes (computed, not timed). So fetch on one box, then copy the whole `ds41-release` volume, the release and the
-`.fetch-*` record beside it, to the other three over the ConnectX ports. In our run that copy, to all three at once,
-took about 4.5 minutes (about 1.9 GB/s to each box): one fetch and the copy took about 80 minutes in all, against about
-5.7 hours for four fetches at once. Check each copy: the copy command exited 0, and the volume holds at least 510.6 GB
-(AGENTS.md, step 1, has the command). Then run the fetch on each of them: it hashes every file and fetches only the
-wrong ones. We have not timed that hash check yet. A sparse copy, with every file at its full size but only some of its
-bytes written, is not the whole release; the fetch finds those files and fetches them again.
+`.fetch-*` record beside it, to the other three over the ConnectX ports.
+
+To copy, first run `docker volume create ds41-release` on each of the other three. Then, on the box that fetched, run
+the commands below as root. Root on this box must be able to ssh to root on the other three. Replace `<box2>`,
+`<box3>` and `<box4>` with their ConnectX addresses on PCIe root 1 (their `IPS` values). The copy runs 8 `rsync`
+streams to each box at once, and prints a `FAILED` line for each stream that fails:
+
+```bash
+V=$(docker volume inspect ds41-release --format '{{ .Mountpoint }}') && cd "$V" &&
+  find . -type f -printf '%P\n' > /tmp/ds41-files && split -n r/8 -d /tmp/ds41-files /tmp/ds41-part. &&
+  for box in <box2> <box3> <box4>; do
+    for part in /tmp/ds41-part.*; do
+      ( rsync -a -W --files-from="$part" "$V/" "root@$box:$V/" || echo "FAILED: $box $part" ) &
+    done
+  done; wait
+for box in <box2> <box3> <box4>; do ssh "root@$box" du -sb "$V"; done   # each: at least 510597801105 bytes
+```
+
+In our run that copy, to all three at once, took about 4.5 minutes (about 1.9 GB/s to each box; each box already
+held about 27 GB from an earlier try): one fetch and the copy took about 80 minutes in all, against about 5.7 hours
+for four fetches at once. A copy is whole when no `FAILED` line printed and its volume holds at least 510597801105
+bytes. Then run the fetch on each of the other three: it hashes every file and fetches only the wrong ones. We have
+not timed that hash check yet. A sparse copy, with every file at its full size but only some of its bytes written, is
+not the whole release; the fetch finds those files and fetches them again.
 
 After you update the image, run the fetch once more on every box: it checks every file and downloads only what is
 wrong or missing.
