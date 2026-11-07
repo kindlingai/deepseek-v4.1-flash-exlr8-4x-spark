@@ -395,7 +395,8 @@ the 510.6 GB again (about 1 s).
 **Measured on 2026-11-07**, four GB10 boxes cabled in a ring: two DGX Sparks and two GB10 boxes from another maker
 whose NVMe is PCIe Gen4. Warm (gen cache written), two runs each way. "Down" is the old model's `down` on all four.
 "Wait after `up -d` returns" runs from the moment the new model's `up -d` returns until `/health` reports ready. The
-total runs from the start of `down` to ready, so it also holds the 3.1-3.3 s that the `up -d` commands themselves take:
+total runs from the start of `down` to ready, so it also holds the 3.1-3.3 s between `down` finishing and `up -d`
+returning, including orchestration:
 
 | Switch | Down | Wait after `up -d` returns | Total |
 |---|---|---|---|
