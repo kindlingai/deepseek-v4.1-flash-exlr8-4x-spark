@@ -299,6 +299,10 @@ cache is not kept on disk, so a restart empties it.
 The card above is one `gr8` bench run on four boxes in fast mode, stored in `kindling.json`. Regenerate it with
 `python3 gr8/bench/bench.py kindling REPORT.json --out kindling.json --config-id tp4`.
 
+To run the bench in the image, on the head: `docker exec ds41-4x-spark gr8 ds41 bench --hosts ''`. Without
+`--hosts ''` it stops with `FileNotFoundError: 'ssh'`. The bench reaches each box over ssh to cool and sample its GPU,
+and the image has no ssh. With `--hosts ''` the bench does not cool the GPUs between stages.
+
 ### Fast mode
 
 Two boots on 2026-11-05, with this recipe's fast-mode settings: Engram, fast mode's switches, 32 chat slots and `CAP`
