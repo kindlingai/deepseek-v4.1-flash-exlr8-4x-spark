@@ -378,6 +378,53 @@ The boxes were four DGX Sparks on one switch, for both. Their CPUs were kept out
 `cpu_dma_latency` 0), and memory was compacted before each boot. Both are box settings outside gr8. The boots went
 through our own test harness, not this image.
 
+## Switch between this and GLM-5.3 on the same four boxes
+
+Run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/main/docs/GLM-5.3.md) at TP=4 on the
+same four boxes, one model at a time, and switch with one stop and one start on every box. Two settings make the
+switch fast, and both keep their data on each box's SSD:
+
+- `GR8_GEN_CACHE` in both models' `EXTRA_ENV` (`.env.example`): the loader keeps the tensors it computes at load and
+  reads them back at the next boot of the same image. The first boot of an image writes them.
+- In gr8's `docker/.env` for GLM, `KV_STORE=ssd:<dir>,size=200G,persist=on,keep=sessions` with `GR8_STOP_GRACE=150s`: at the stop,
+  GLM writes its open chats to the SSD, and the next boot reads them back. This recipe's own prefix cache is not
+  kept on disk (see The prefix cache).
+
+GLM to DeepSeek, on every box (GLM from gr8's `docker/` directory, this recipe from its own):
+
+```bash
+(cd gr8/docker && docker compose down) && docker compose up -d
+```
+
+DeepSeek to GLM, on every box:
+
+```bash
+docker compose down && (cd gr8/docker && docker compose up -d)
+```
+
+The release check at each start reads only the files that changed since the last check, so a switch does not hash
+the 510.6 GB again (about 1 s).
+
+**Measured on 2026-11-07**, four GB10 boxes cabled in a ring: two DGX Sparks and two GB10 boxes from another maker
+whose NVMe is PCIe Gen4. Warm (gen cache written), two runs each way. "Down" is the old model's `down` on all four.
+"Wait after `up -d` returns" runs from the moment the new model's `up -d` returns until `/health` reports ready. The
+total runs from the start of `down` to ready, so it also holds the 3.1-3.3 s between `down` finishing and `up -d`
+returning, including orchestration:
+
+| Switch | Down | Wait after `up -d` returns | Total |
+|---|---|---|---|
+| GLM-5.3 to DeepSeek | 19.3-21.1 s | 34.9-35.6 s | 58.0-59.3 s |
+| DeepSeek to GLM-5.3 | 12.8-13.4 s | 71.0-71.2 s | 87.2-87.5 s |
+
+- A GLM chat that lived through GLM to DeepSeek to GLM answers its next turn in 0.16-0.20 s (time to first token, four
+  chats of ~5,400 tokens, both runs). Their first turn, a cold prefill, took 3.8-4.2 s. The resumed answers were the
+  same in both runs.
+- The slowest boxes set each start. DeepSeek: the DGX Spark ranks were ready 13-15 s after the start, the Gen4 boxes
+  27-30 s, reading 79.6 GB of gen cache each. GLM-5.3: the DGX Sparks read their 78.3 GB of weights in 15 s, the Gen4
+  boxes in 59-60 s. The loader, not the drive, sets that time: it reads at 31-46% of each drive's sequential speed.
+- The first DeepSeek start of an image writes its gen cache: 226 s from `up -d` returning to ready, and 79.6 GB on
+  each box's disk. GLM's is 4.8 GB a box; its first start took 73 s from `up -d` returning to ready.
+
 ## Run another model
 
 A box runs one model at a time, and gr8 does not start while another gr8 engine runs on it. To switch, stop and remove
