@@ -149,6 +149,18 @@ docker stop ds41-4x-spark && docker rm ds41-4x-spark   # on every box
 
 `:latest` follows `main`. Each commit is also published as `sha-<commit>`, and each tag under its name.
 
+## Help
+
+Ask on Discord (https://discord.gg/8EAvYPV2rE) or open an issue in this repo
+(https://github.com/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark/issues). Say which step failed, and include:
+
+- the command you ran, and the end of `docker logs ds41-4x-spark`, before you remove the container;
+- if it still runs, `docker exec ds41-4x-spark gr8 ds41 status`.
+
+[AGENTS.md](AGENTS.md#5-when-a-step-fails) lists the errors we know and what to do for each.
+
+Remove addresses and hostnames before you post.
+
 ## Run it with compose
 
 `compose.yaml` runs the same image with the same settings and reads `PEERS` and the knobs from `.env`. It uses the
