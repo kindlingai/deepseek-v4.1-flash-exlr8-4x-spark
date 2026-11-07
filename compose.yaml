@@ -55,7 +55,10 @@ services:
       - /tmp:size=1g,mode=1777
     oom_score_adj: 1000
     init: true
-    stop_grace_period: 30s
+    # SIGTERM makes the supervisor quit its engine. A KV_STORE ssd store with persist=on and keep=sessions (or all)
+    # gives the quit up to 120 s, as it stores the open chats for the next boot: set GR8_STOP_GRACE=150s with one, or
+    # docker kills the engine mid-store (gr8/docker/compose.yaml).
+    stop_grace_period: ${GR8_STOP_GRACE:-30s}
     volumes:
       # The release, 510.6 GB, read in place: every box holds all of it (fetch-release.sh). Set RELEASE_DIR to a host
       # directory owned by uid 1000 on local NVMe to keep it outside docker.
