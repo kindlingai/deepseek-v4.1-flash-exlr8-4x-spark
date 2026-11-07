@@ -252,6 +252,13 @@ set it.
 `GR8_DS_MHC_Y_MXFP8=1` joined `TUNE=speed`; it cleared the pass-to-pass spread in one run and not the other, and the
 gate requires both, so it is not a default.
 
+`GR8_DS_MHC_Y_MXFP8=1` requires `GR8_DS_MHC_ROW_SHARD=1`. `TUNE=speed` sets both, so with
+`EXTRA_ENV=GR8_DS_MHC_ROW_SHARD=0` alone the engine exits at start
+(`GR8_DS_MHC_Y_MXFP8=1 needs GR8_DS_MHC_ROW_SHARD=1`).
+At 128K on the switch setup, turning both off (`EXTRA_ENV="GR8_DS_MHC_ROW_SHARD=0 GR8_DS_MHC_Y_MXFP8=0"`) makes prompt
+reading about 9% slower: -9.35% and -8.74% in two runs, one in each arm order, a fresh boot per arm. The two arms'
+ranges do not overlap.
+
 ## Pick what to prioritize
 
 `TUNE` picks one of three sets of settings (`knobs.sh`). A `CAP` or `SESS` you set yourself keeps your value, and
@@ -340,6 +347,12 @@ The rows are the four runs, two on each boot, as a range:
 | a fact hidden in a 128K prompt | found in each of the four runs |
 | quality | 72 of 75 on FIRST-BOOT.md's 75-item check, one run on each boot |
 | the release | 510.6 GB in 604 files, on every box |
+
+The image `sha-1938a1d` is the first with `GR8_DS_MHC_Y_MXFP8=1` in `TUNE=speed`. Prompt reading on it, at the
+defaults, on the switch setup (the four boxes on a 200G switch, one port each), one boot: 32K about 5,120 tok/s (the
+mean of 4 paired passes), 64K about 4,980 and 128K about 4,760 tok/s (each the mean of 4 single requests). The first
+word after a 128K prompt came in about 27.5 s. `GR8_DS_MHC_Y_MXFP8=1` adds about 3% at 128K (two runs) and about 7%
+at 32K (measured before it joined `TUNE=speed`, by setting it in `EXTRA_ENV`, with the same engine binary).
 
 ### `TUNE=quality`
 
