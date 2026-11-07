@@ -63,7 +63,7 @@ Set the same values on all four boxes, in `.env` (compose) or with `docker run -
 
 | `TUNE` | the settings it sets (`knobs.sh`) | what it gives |
 |---|---|---|
-| `speed` (default) | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1`, `SESS=32`, `CAP=327680` | fast mode: 32 chats of up to 327,670 tokens; replies not bit-identical to the exact model's |
+| `speed` (default) | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1 GR8_DS_MHC_Y_MXFP8=1`, `SESS=32`, `CAP=327680` | fast mode: 32 chats of up to 327,670 tokens; replies not bit-identical to the exact model's |
 | `context` | the same six switches, `GR8_DS_CACHE_MIB=2048`, `SESS=16`, `CAP=1048576` | fast mode: one chat of up to 1,048,566 tokens, 16 chats at once |
 | `quality` | none of the six switches (gr8's launcher defaults), `SESS=5`, `CAP=262144` | the exact model's output: 5 chats of up to 262,134 tokens |
 

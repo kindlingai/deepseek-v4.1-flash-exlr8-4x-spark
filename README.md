@@ -249,7 +249,7 @@ Knobs).
 
 | `TUNE` | sets | you get | you give up | measured |
 |---|---|---|---|---|
-| `speed` (default) | fast mode: `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1`, `SESS=32`, `CAP=327680` | One chat writes code / prose / structured at 142.4-145.6 / 83.5-84.6 / 159.5-161.6 tok/s. 8 chats together write 210.7-228.3 tok/s. 32 chats of up to 327,670 tokens. | Replies are not bit-identical to the exact model's. 72 of 75 right on FIRST-BOOT.md's 75-item check, against the exact model's 73. | On gr8 `main` at `35a8f1c` with the change that became #359, not on this image (see More numbers). |
+| `speed` (default) | fast mode: `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1 GR8_DS_MHC_Y_MXFP8=1`, `SESS=32`, `CAP=327680` | One chat writes code / prose / structured at 142.4-145.6 / 83.5-84.6 / 159.5-161.6 tok/s. 8 chats together write 210.7-228.3 tok/s. 32 chats of up to 327,670 tokens. `GR8_DS_MHC_Y_MXFP8=1`: 32K prompt reading 6.8% faster on this image (two boots in each order, ranges do not overlap); 75-item check unchanged at 72 of 75, the same 3 items wrong (one run each). | Replies are not bit-identical to the exact model's. 72 of 75 right on FIRST-BOOT.md's 75-item check, against the exact model's 73. | On gr8 `main` at `35a8f1c` with the change that became #359, not on this image (see More numbers). |
 | `context` | fast mode's six switches, `GR8_DS_CACHE_MIB=2048` (the prefix cache at half its default), `SESS=16`, `CAP=1048576` | One chat of up to 1,048,566 tokens. A 1,031,542-token prompt reads in about 417 s. 9.8-10.0 GiB free a box at ready. | 16 chats at once, not 32. Recall at 1M found all 3 hidden facts in 2 of 7 prompts. At 2,048 MiB, only the last 1M chat stays in the prefix cache. | Partly: [FIRST-BOOT.md Q2](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q2-how-long-can-one-chat-be), on an earlier gr8 build with only Q3's two switches, not this image's `DS41_MX=48` build. The memory and read time are from that build. Speed at 1M is not measured. |
 | `quality` | gr8's launcher defaults (none of fast mode's switches), `SESS=5`, `CAP=262144` | The exact model's output. 73 of 75 right, in each of three runs. | One chat writes code / prose / structured at 104.6-105.9 / 61.7-62.0 / 126.2-126.9 tok/s. 5 chats at once, of up to 262,134 tokens. | On older gr8 builds, not on this image's `DS41_MX=48` build (see More numbers). |
 
@@ -260,7 +260,10 @@ Fast mode (`TUNE=speed`, the default, and `TUNE=context`) turns on the switches 
 Q3 (`GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4`) and Q4 (`GR8_DS41_HEAD_MX=1`), which change
 the output. It also turns on three prefill settings of
 [gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/ENV.md):
-`GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` and `GR8_DS_MHC_ROW_SHARD=1`. Its replies are not bit-identical to the
+`GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` and `GR8_DS_MHC_ROW_SHARD=1`. `TUNE=speed` (not `TUNE=context`) also sets
+`GR8_DS_MHC_Y_MXFP8=1`, which sends the row-shard exchange in MXFP8: on this image it made 32K prompt reading 6.8% faster
+(two boots in each order, the ranges do not overlap) and left the 75-item check at 72 of 75, the same 3 items wrong
+(one run each). Its replies are not bit-identical to the
 exact model's: the same prompt can get a different reply. `TUNE=quality` runs gr8's launcher defaults, which give the
 exact model's output. In FIRST-BOOT.md, Q3's two switches took the 75-item check from 73 to 71 right, and Q4's head,
 added to them, brought it to 72.
