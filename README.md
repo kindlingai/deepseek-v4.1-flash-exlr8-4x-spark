@@ -15,6 +15,9 @@ bit-identical to the exact model's.
 #359, built with `DS41_MX=48` (see More numbers). A recording of several chats at once, at this recipe's defaults, is
 still to come.*
 
+*On the image `sha-15b7eec` (2026-11-07), one stream wrote code at 147.3, prose at 82.3 and structured at 156.5 tok/s
+(one run). See Fast mode, below.*
+
 **Our view:** DeepSeek-V4.1-Flash is best used as a reviewer, and for work that will be double-checked, because it
 tends to hallucinate a lot in general. That is a model issue, not an engine or quant issue.
 
@@ -26,7 +29,8 @@ tends to hallucinate a lot in general. That is a model issue, not an engine or q
 Pick what to prioritize with one setting, `TUNE`, the same on all four boxes:
 
 - `TUNE=speed` (the default): one chat writes code at 142.4-145.6 tok/s, and 32 chats run at once.
-- `TUNE=context`: one chat of up to 1,048,566 tokens, 16 chats at once. Only partly measured.
+- `TUNE=context`: one chat of up to 1,048,566 tokens, 16 chats at once. Measured on the image `sha-15b7eec` (see
+  [More numbers](#more-numbers)); recall and output quality at 1M are not measured on it.
 - `TUNE=quality`: the exact model's output, 5 chats at once.
 
 We recommend `TUNE=speed` or `TUNE=context`. The model hallucinates in every mode (see Our view, above). Details:
@@ -131,7 +135,8 @@ In our run that copy, to all three at once, took about 4.5 minutes (about 1.9 GB
 held about 27 GB from an earlier try): one fetch and the copy took about 80 minutes in all, against about 5.7 hours
 for four fetches at once. A copy is whole when no `FAILED` line printed and its volume holds at least 510597801105
 bytes. Then run the fetch on each of the other three: it hashes every file and fetches only the wrong ones. We have
-timed that hash pass only in the migration below: 60 s a box. A sparse copy, with every file at its full size but only
+timed that hash pass only in the migration below: 60 s a box. A `fetch` that only checks an already-whole release
+returned in 3-4 s a box on the image `sha-15b7eec` (2026-11-07, all four boxes, every hash right). A sparse copy, with every file at its full size but only
 some of its bytes written, is not the whole release; the fetch finds those files and fetches them again.
 
 After you update the image, run the fetch once more on every box: it checks every file and downloads only what is
@@ -320,7 +325,7 @@ measured on four GB10 boxes with an earlier gr8 build. Q3's switches were on, th
 | change | you gain | you give up | measured |
 |---|---|---|---|
 | `SESS=5` | With 8 chats, the 5 that run write 68-69 tok/s each, against 51-56 when 10 slots let all 8 run. The total stays at about 235-275 tok/s from 8 chats up. Each 262,144-token slot dropped frees about 0.35 GiB a box at ready. | Chats beyond 5 wait for a slot. With 16 chats, 11 wait, and the first word comes in 5.4-5.5 s, against 4.2-4.4 s with 10 or 16 slots. | [Q1](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q1-how-many-chats-at-once), 5, 10 and 16 slots; 32 slots were not part of Q1 |
-| `CAP=1048576 SESS=16` (`TUNE=context`) | One chat can hold 1,048,566 tokens. | A 1,031,542-token prompt takes about 417 s to read. Recall at 1M found all 3 hidden facts in 2 of 7 prompts. 9.8-10.0 GiB free a box at ready. | [Q2](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q2-how-long-can-one-chat-be), 16 slots, `GR8_DS_CACHE_MIB=2048`; 32 slots at 1M were not tested |
+| `CAP=1048576 SESS=16` (`TUNE=context`) | One chat can hold 1,048,566 tokens. | A 1,031,542-token prompt takes 388.7 s to read (image `sha-15b7eec`, 2026-11-07; about 417 s on the earlier build named below), and the same prompt again takes 1.19 s from the prefix cache. Recall at 1M found all 3 hidden facts in 2 of 7 prompts (earlier build; not re-measured on `sha-15b7eec`). 8.7-9.4 GiB free a box at ready on `sha-15b7eec` (9.8-10.0 on the earlier build). | [Q2](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q2-how-long-can-one-chat-be), 16 slots, `GR8_DS_CACHE_MIB=2048`; the 2026-11-07 rows are the image `sha-15b7eec` (More numbers); 32 slots at 1M were not tested |
 
 ## The prefix cache
 
@@ -357,6 +362,9 @@ The rows are the four runs, two on each boot, as a range:
 | quality | 72 of 75 on FIRST-BOOT.md's 75-item check, one run on each boot |
 | the release | 510.6 GB in 604 files, on every box |
 
+The same three workloads, one stream, on the image `sha-15b7eec` (2026-11-07, one run): code 147.3 / prose 82.3 /
+structured 156.5 tok/s, and a counting workload at 163.4 tok/s. That image builds a `main` later than `5381433`.
+
 The image `sha-1938a1d` is the first with `GR8_DS_MHC_Y_MXFP8=1` in `TUNE=speed`. Prompt reading on it, at the
 defaults, on the switch setup (the four boxes on a 200G switch, one port each), one boot: 32K about 5,120 tok/s (the
 mean of 4 paired passes), 64K about 4,980 and 128K about 4,760 tok/s (each the mean of 4 single requests). The first
@@ -386,6 +394,38 @@ The first four rows are that boot's two runs, as a range:
 The boxes were four DGX Sparks on one switch, for both. Their CPUs were kept out of deep idle (PM QoS
 `cpu_dma_latency` 0), and memory was compacted before each boot. Both are box settings outside gr8. The boots went
 through our own test harness, not this image.
+
+### `TUNE=context`
+
+One boot on 2026-11-07 of the image `sha-15b7eec`, on four DGX Sparks: `CAP` 1,048,576, 16 chat slots and
+`GR8_DS_CACHE_MIB` 2,048, which is what `TUNE=context` sets. Ready 87 s after the containers started, with 8.7-9.4 GiB
+free a box.
+
+One cold 1,031,542-token prompt (1,030,032 tokens prefilled; the cache held nothing from it before):
+
+| | |
+|---|---|
+| first word | 388.7 s, at 2,650 tok/s of prompt reading |
+| the same prompt again | 1.19 s to its first word, 1,030,031 tokens served from the prefix cache |
+| reply speed after the prompt | 91.9 tok/s, the bench's own probe |
+
+Three chats that each send that same 1M prompt again, at once: first words in 2.9-3.9 s and replies at 13.9-28.9 tok/s
+a chat, with 1.6-2.8 GiB free a box at the lowest sample. Three distinct cold 1M prompts at once were not measured.
+
+A quick bench on the same boot. It ran with the context knobs, and its `GR8_DS_CACHE_MIB` is 2,048 where `TUNE=speed`
+sets 4,096, so its prompt-reading rows do not compare with the fast-mode ones:
+
+| | |
+|---|---|
+| one chat writing: code / prose | 146.3 / 81.9 tok/s |
+| all chats together: 1 / 2 / 4 / 8 chats | 103.6 / 141.2 / 164.3 / 206.8 tok/s |
+| first word, half of the chats: 1 / 2 / 4 / 8 | 207 / 655 / 1,169 / 2,541 ms |
+| prompt reading, cold: 8K / 32K / 128K | 4,481 / 5,069 / 4,667 tok/s |
+| first word after 8K / 32K / 128K | 1.83 / 6.47 / 28.08 s |
+| those prompts again | 0.05-0.21 s to their first word |
+
+Not measured at 1M on this image: recall of hidden facts, output quality, and three distinct 1M prompts prefilling at
+once.
 
 ## Switch between this and GLM-5.3 on the same four boxes
 
