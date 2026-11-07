@@ -76,7 +76,7 @@ be 10.0.0.N and 10.0.1.N.
 
 Four boxes cabled in a ring without a switch also work, with `SHAPE=ring` and without `IPS` and `IPS2`: the engines
 find the ports by name. Cable each box's f0 port to the next box's f1 port, and list `PEERS` in that cable order
-([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/DEPLOY.md#how-the-boxes-find-each-other)).
+([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/docs/DEPLOY.md#how-the-boxes-find-each-other)).
 
 We also recommend that you run [`mentat`](https://github.com/kindlingai/mentat) (`ghcr.io/kindlingai/mentat`) for
 your cluster for zero-IP configuration. `mentat` will allow this recipe to autoconfigure itself with other nodes in
@@ -244,13 +244,13 @@ written when the image is built, from two files of
 [DeepSeek-V4.1-Flash-1017 at `1bae0e1`](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/tree/1bae0e1088993b9b82de08f59de5be5a34e42170)
 and the release's tokenizer, and the build stops unless it matches the map the engine checks at boot.
 
-You can set any other `gr8` option in `.env` too: [gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/KNOBS.md)
-lists them, and [gr8/docs/DEEPSEEK-BOOT.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/DEEPSEEK-BOOT.md)
+You can set any other `gr8` option in `.env` too: [gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/KNOBS.md)
+lists them, and [gr8/docs/DEEPSEEK-BOOT.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/docs/DEEPSEEK-BOOT.md)
 covers DeepSeek-V4.1-Flash. Engine settings go in `EXTRA_ENV`, as `NAME=value` pairs separated by spaces
 (`EXTRA_ENV="A=1 B=2"`). The image sets `TP=4`, Engram and the `TUNE` value's settings (`Dockerfile`, `knobs.sh`). The
 KV cache is always fp8. The image's engine is built with `DS41_MX=48`: a decode step holds 48 rows instead of gr8's
 default 32, so a step can verify 6 rows for each of 8 chats
-([gr8/engine/runtime/build_m4.sh](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/engine/runtime/build_m4.sh)).
+([gr8/engine/runtime/build_m4.sh](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/engine/runtime/build_m4.sh)).
 
 One trade you can make this way: `EXTRA_ENV=GR8_DS_PF_LANES=1` (gr8's default is 2) frees about 5 GiB of host memory
 per Spark (measured on the switch setup, one run) for slower prompt reading. With the four boxes on a 200G switch,
@@ -291,7 +291,7 @@ Fast mode (`TUNE=speed`, the default, and `TUNE=context`) turns on the switches 
 [gr8/docs/FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness)
 Q3 (`GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4`) and Q4 (`GR8_DS41_HEAD_MX=1`), which change
 the output. It also turns on three prefill settings of
-[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/ENV.md):
+[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/docs/ENV.md):
 `GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` and `GR8_DS_MHC_ROW_SHARD=1`. `TUNE=speed` (not `TUNE=context`) also sets
 `GR8_DS_MHC_Y_MXFP8=1`, which sends the row-shard y all-gather in MXFP8 (full 4,096-row chunks only; a prompt's last,
 shorter chunk stays BF16): on this image it made 32K prompt reading faster on both 4-box setups we measured: +6.8% on a
@@ -347,9 +347,11 @@ and the image has no ssh. With `--hosts ''` the bench does not cool the GPUs bet
 Two boots on 2026-11-05, with this recipe's fast-mode settings: Engram, fast mode's switches, 32 chat slots and `CAP`
 327,680. The engine was gr8 `main` at
 [`35a8f1c`](https://github.com/kindlingai/gr8/commit/35a8f1c771991a87b0c6308006b74ce70faf0378) with the change that
-became gr8 #359, built with `DS41_MX=48`. The image builds a later `main`,
+became gr8 #359, built with `DS41_MX=48`. The image `sha-661d148` built a later `main`,
 [`5381433`](https://github.com/kindlingai/gr8/commit/5381433c940b51223f8287f93b0c484c806207e9), which contains both
-and 39 other later commits, and it sets the same engine settings. These numbers have not been measured on that build.
+and 39 other later commits, and it sets the same engine settings. The recipe now pins gr8
+[`4ed9e7be`](https://github.com/kindlingai/gr8/commit/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96), which contains
+`5381433`. These numbers have not been measured on either build.
 The rows are the four runs, two on each boot, as a range:
 
 | | |
@@ -503,9 +505,9 @@ needs.
 
 - [AGENTS.md](AGENTS.md): how to boot this recipe and check that it serves, every knob, and what each `TUNE` value
   sets.
-- [gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/KNOBS.md): every
+- [gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/KNOBS.md): every
   `gr8` option.
-- [gr8/docs/DEEPSEEK-BOOT.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/DEEPSEEK-BOOT.md)
+- [gr8/docs/DEEPSEEK-BOOT.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/docs/DEEPSEEK-BOOT.md)
   and [gr8/docs/FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md):
   the DeepSeek boot, and the measured trade-offs.
 - [kindling.json](kindling.json): the numbers on the card, as data.
