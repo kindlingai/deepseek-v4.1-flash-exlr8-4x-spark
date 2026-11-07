@@ -104,19 +104,19 @@ on four boxes (computed, not timed). So fetch on one box, then copy the whole `d
 `.fetch-*` record beside it, to the other three over the ConnectX ports.
 
 To copy, first run `docker volume create ds41-release` on each of the other three. Then, on the box that fetched, run
-the commands below as root. Root on this box must be able to ssh to root on the other three. Replace `<box2>`,
-`<box3>` and `<box4>` with their ConnectX addresses on PCIe root 1 (their `IPS` values). The copy runs 8 `rsync`
-streams to each box at once, and prints a `FAILED` line for each stream that fails:
+the commands below as root. Root on this box must be able to ssh to root on the other three. The addresses are boxes
+2 to 4's ConnectX addresses on PCIe root 1 in the netplan example above (their `IPS` values): use yours. The copy runs
+8 `rsync` streams to each box at once, and prints a `FAILED` line for each stream that fails:
 
 ```bash
 V=$(docker volume inspect ds41-release --format '{{ .Mountpoint }}') && cd "$V" &&
   find . -type f -printf '%P\n' > /tmp/ds41-files && split -n r/8 -d /tmp/ds41-files /tmp/ds41-part. &&
-  for box in <box2> <box3> <box4>; do
+  for box in 10.0.0.2 10.0.0.3 10.0.0.4; do
     for part in /tmp/ds41-part.*; do
       ( rsync -a -W --files-from="$part" "$V/" "root@$box:$V/" || echo "FAILED: $box $part" ) &
     done
   done; wait
-for box in <box2> <box3> <box4>; do ssh "root@$box" du -sb "$V"; done   # each: at least 510597801105 bytes
+for box in 10.0.0.2 10.0.0.3 10.0.0.4; do ssh "root@$box" du -sb "$V"; done   # each: at least 510597801105 bytes
 ```
 
 In our run that copy, to all three at once, took about 4.5 minutes (about 1.9 GB/s to each box; each box already
