@@ -87,6 +87,14 @@ Then start the recipe with `MENTAT=1` in place of `PEERS`, `IPS` and `IPS2`.
 To run without `mentat`, specify the four nodes' 10G IP addresses using `PEERS` (head first), and the matching
 ConnectX IP addresses with `IPS` (PCIe root 1) and `IPS2` (PCIe root 2), in the same order.
 
+What to set, by how the four boxes are joined:
+
+| your boxes | set | leave out |
+|---|---|---|
+| on a switch, with `mentat` | `MENTAT=1` | `PEERS`, `IPS`, `IPS2` |
+| on a switch, without `mentat` | `PEERS` (head first), `IPS`, `IPS2` | |
+| in a ring, without a switch | `PEERS` in cable order, `SHAPE=ring` | `IPS`, `IPS2` |
+
 ## Quickstart
 
 First, fetch the release on every box. Each box needs all 604 files (510.6 GB). The fetch resumes where it left off
@@ -177,6 +185,7 @@ In `.env` next to `compose.yaml` (see `.env.example`), or with `docker run -e`, 
 |---|---|---|
 | `PEERS` | none | The four boxes' 10G LAN addresses, head first. Required unless `MENTAT=1`. |
 | `IPS`, `IPS2` | none | Each box's ConnectX address on PCIe root 1 and root 2, in `PEERS` order (see Clustering). |
+| `SHAPE` | unset (a switch) | `ring`: four boxes cabled in a ring, without `IPS` and `IPS2` (see Clustering). |
 | `TUNE` | `speed` | `speed`: fast mode, faster and not bit-identical to the exact model's output. `context`: fast mode, one chat of up to 1,048,566 tokens. `quality`: the exact model's output. See Pick what to prioritize. `EXACT=1`, the older name, is now `TUNE=quality`. |
 | `CAP` | `327680`; `1048576` with `TUNE=context`; `262144` with `TUNE=quality` | The longest chat in tokens, prompt and reply together. Every chat slot gets this much KV at boot. A request holds at most `CAP` less 10 tokens (327,670; 1,048,566 with `TUNE=context`; 262,134 with `TUNE=quality`). |
 | `SESS` | `32`; `16` with `TUNE=context`; `5` with `TUNE=quality` | Chats at once, 1 to 32. A chat that arrives when every slot is busy waits. Above 5, the image adds `GR8_DS_SESS_DRAFTS=1`: each chat drafts fewer tokens as more chats write, and none when more than 24 write at once. |
