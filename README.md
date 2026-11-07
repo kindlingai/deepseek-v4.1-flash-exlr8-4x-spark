@@ -393,10 +393,11 @@ The release check at each start reads only the files that changed since the last
 the 510.6 GB again (about 1 s).
 
 **Measured on 2026-11-07**, four GB10 boxes cabled in a ring: two DGX Sparks and two GB10 boxes from another maker
-whose NVMe is PCIe Gen4. Each time is the old model's `down` on all four plus the new model's `up -d` until `/health`
-reports ready, warm (gen cache written), two runs each way:
+whose NVMe is PCIe Gen4. Warm (gen cache written), two runs each way. "Down" is the old model's `down` on all four.
+"Wait after `up -d` returns" runs from the moment the new model's `up -d` returns until `/health` reports ready. The
+total runs from the start of `down` to ready, so it also holds the 3.1-3.3 s that the `up -d` commands themselves take:
 
-| Switch | Down | Up to ready | Total |
+| Switch | Down | Wait after `up -d` returns | Total |
 |---|---|---|---|
 | GLM-5.3 to DeepSeek | 19.3-21.1 s | 34.9-35.6 s | 58.0-59.3 s |
 | DeepSeek to GLM-5.3 | 12.8-13.4 s | 71.0-71.2 s | 87.2-87.5 s |
@@ -407,8 +408,8 @@ reports ready, warm (gen cache written), two runs each way:
 - The slowest boxes set each start. DeepSeek: the DGX Spark ranks were ready 13-15 s after the start, the Gen4 boxes
   27-30 s, reading 79.6 GB of gen cache each. GLM-5.3: the DGX Sparks read their 78.3 GB of weights in 15 s, the Gen4
   boxes in 59-60 s. The loader, not the drive, sets that time: it reads at 31-46% of each drive's sequential speed.
-- The first DeepSeek start of an image writes its gen cache: 226 s up to ready, and 79.6 GB on each box's disk. GLM's
-  is 4.8 GB a box; its first start took 73 s.
+- The first DeepSeek start of an image writes its gen cache: 226 s from `up -d` returning to ready, and 79.6 GB on
+  each box's disk. GLM's is 4.8 GB a box; its first start took 73 s from `up -d` returning to ready.
 
 ## Run another model
 
