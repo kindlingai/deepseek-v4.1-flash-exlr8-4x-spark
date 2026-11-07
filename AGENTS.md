@@ -122,11 +122,17 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
    A failed copy is easy to miss: in our run the first rsync exited 23 after 0 s and left each volume at about 10 GB.
    In our run the copy to all three at once took 260 s, about 1.9 GB/s to each box (each already held about 27 GB
    from an earlier try). Then run the fetch on each box that got the copy: it hashes every file and fetches only the
-   wrong ones. That hash check is not timed yet. A sparse copy (every file at its full size, only some bytes written)
-   is not whole. Files copied without the record are refused.
+   wrong ones. That hash pass is timed only in the migration below: 60 s a box. A sparse copy (every file at its full
+   size, only some bytes written) is not whole. Files copied without the record are refused.
 
    After you update the image, run the fetch once more on every box before you boot: it checks every file and
    downloads only what is wrong or missing.
+
+   A release fetched with an image older than `sha-fe21314` (such as `sha-661d148`) has a record without hashes. The
+   fetch, and the container at start, migrate it: only the file list is fetched, every file's blob id and size must
+   match the record, then every file is hashed once, check only (60 s a box on four boxes at once, local NVMe). The
+   migration deletes and downloads nothing. It names a file that does not match and stops: run the fetch with
+   `fetch --force` on that box to fetch that file again.
 
 2. Optional, on every box: print the settings the boot will use, and compare the `CAP`, `SESS` and `EXTRA_ENV` lines
    with the `TUNE` table above. The output goes to stdout. With `mentat`, pass `-e MENTAT=1` in place of `PEERS`.
@@ -193,7 +199,8 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 |---|---|
 | `PEERS=...: want the four boxes' LAN addresses, head first, the same on every box (or MENTAT=1)` | set `PEERS` to four addresses, the same list on every box, or `MENTAT=1` |
 | `ds41-4x: the release in ... is not whole: run the fetch first, on every box` | run the fetch (step 1) on that box. With compose, the container restarts and stops again until the fetch is done |
-| `fetch-release.sh: no record that ... holds ..., with each file's hash (run the fetch)` | the volume holds another release, or an image from before the fetch checked hashes fetched it: run the fetch (step 1). It hashes the files that are there and fetches only the wrong or missing ones |
+| `fetch-release.sh: no record that ... holds ..., with each file's hash (run the fetch)` | the volume holds another release: run the fetch (step 1). It hashes the files that are there and fetches only the wrong or missing ones |
+| `ds41-4x: the fetch record beside ... is from an older image and was not migrated (above)` | the release was fetched with an image older than `sha-fe21314`, and the lines above name each file that differs from the release. Nothing was deleted. On that box, run the fetch (step 1) with `fetch --force` in place of `fetch`: it deletes those files and fetches them again |
 | `fetch-release.sh: ... holds files but there is no record of their release ...: empty it first` | the volume holds files the fetch did not put there: copy the `.fetch-*` record beside the release with them (step 1), or empty the volume and fetch |
 | `MISMATCH <file>: ...` | that file has its full size but not the content the release lists (a sparse or damaged copy): run the fetch (step 1), which fetches it again |
 | `TUNE=...: want speed ..., context ... or quality ...` | use one of the three values |
