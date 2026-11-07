@@ -205,10 +205,17 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 | a box never joins | start all four within 600 s; check that `PEERS` and every other knob are the same on every box, head first, and that ports 7340 and 7341 are open |
 
 The container's exit status is the launcher's: 0 after a stop, 1 when a rank failed, 2 for bad options, 4 when the
-boxes' handshake refused the boot. The logs are in the home volume: `out/supervisor.log`, `g6m4.r0.err`, `shim.log`,
-`front.log`. Read one with `docker exec ds41-4x-spark gr8 ds41 logs supervisor` (or `shim`, `front`, or no word for
-the engine). If a step fails for a reason not listed here, ask on the KindlingAI Discord (the link is at the top of
-README.md).
+boxes' handshake refused the boot. `docker inspect -f '{{.State.ExitCode}}' ds41-4x-spark` prints it. The logs are
+in the home volume: `out/supervisor.log`, `g6m4.r0.err`, `shim.log`, `front.log`.
+
+On the box that failed, read its log:
+
+- After the container exits: `docker logs ds41-4x-spark` (compose: `docker compose logs`). It has the launcher's
+  output, and it is there until you remove the container.
+- While the container runs: `docker exec ds41-4x-spark gr8 ds41 logs supervisor` (or `shim`, `front`, or no word for
+  the engine).
+
+If a step fails for a reason not listed here, ask on the KindlingAI Discord (the link is at the top of README.md).
 
 ## 6. Not measured yet: tell the person
 
