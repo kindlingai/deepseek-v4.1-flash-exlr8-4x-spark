@@ -261,9 +261,10 @@ Q3 (`GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4`) and Q4 
 the output. It also turns on three prefill settings of
 [gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/ENV.md):
 `GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` and `GR8_DS_MHC_ROW_SHARD=1`. `TUNE=speed` (not `TUNE=context`) also sets
-`GR8_DS_MHC_Y_MXFP8=1`, which sends the row-shard exchange in MXFP8: on this image it made 32K prompt reading 6.8% faster
-(two boots in each order, the ranges do not overlap) and left the 75-item check at 72 of 75, the same 3 items wrong
-(one run each). Its replies are not bit-identical to the
+`GR8_DS_MHC_Y_MXFP8=1`, which sends the row-shard y all-gather in MXFP8 (full 4,096-row chunks only; a prompt's last,
+shorter chunk stays BF16): on this image it made 32K prompt reading 6.8% faster (two boots in each order, the ranges do
+not overlap) and left the 75-item check at 72 of 75, with the same 3 items wrong and the same count right in each
+category (one run each). Its replies are not bit-identical to the
 exact model's: the same prompt can get a different reply. `TUNE=quality` runs gr8's launcher defaults, which give the
 exact model's output. In FIRST-BOOT.md, Q3's two switches took the 75-item check from 73 to 71 right, and Q4's head,
 added to them, brought it to 72.
