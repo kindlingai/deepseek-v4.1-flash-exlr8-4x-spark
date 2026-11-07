@@ -14,6 +14,11 @@
 #   7. a download that stops part way: the fetch fails and keeps the part, and the next fetch completes the file
 #   8. a file that changes while it is hashed: --check hashes it again, once; when it changes again, --check fails;
 #      when it changed to wrong bytes, --check fails on the hash and the fetch fetches it again
+#   9. a record from an image older than sha-fe21314 (blob ids and sizes, no hashes): --migrate does nothing when the
+#      record has hashes; on the old record it fetches only the file list, hashes every file once and adds the hashes;
+#      with a file of the wrong content, --migrate and the fetch name it and stop, delete and fetch nothing, and leave
+#      the record as it was, and --force fetches it again; with a blob id or size that differs from the list, --migrate
+#      names the files and stops before it hashes
 set -euo pipefail
 script=$(cd "$(dirname "$0")/.." && pwd)/fetch-release.sh
 t=$(mktemp -d -t ds41-fetch-test.XXXXXX)
@@ -34,7 +39,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 case $url in
-  */api/models/*) r=${url##*/revision/}; cat "$HF/${r%%\?*}.json" ;;
+  */api/models/*) r=${url##*/revision/}; echo "${r%%\?*}" >> "$HF/api.log"; cat "$HF/${r%%\?*}.json" ;;
   */resolve/*) p=${url#*/resolve/}; echo "$p" >> "$HF/fetched.log"
     from=0; [ "$cont" != - ] || [ ! -e "$out" ] || from=$(stat -c %s "$out")
     [ "$from" != 0 ] || : > "$out"
@@ -178,5 +183,58 @@ rc=0; err=$("$script" --check 2>&1) || rc=$?
 "$script" --check > /dev/null || fail "check after the fetch of the changed weights.bin"
 [ "$(cat "$MODEL/weights.bin")" = NEW ] && [ "$(cat "$HF/fetched.log")" = "$B/weights.bin" ] ||
   fail "after the fetch: weights.bin $(cat "$MODEL/weights.bin"), fetched $(tr '\n' ' ' < "$HF/fetched.log")"
+
+# 9
+mv "$t/bin/sha256sum" "$t/sha256sum.mutating" && mv "$t/sha256sum.logged" "$t/bin/sha256sum"
+: > "$HF/api.log"
+out=$("$script" --migrate) || fail "--migrate on a record with hashes"
+[ -z "$out" ] && [ ! -s "$HF/api.log" ] ||
+  fail "--migrate on a record with hashes: said $out, asked $(cat "$HF/api.log")"
+pre5() {  # $1 = a name: the record as an image older than sha-fe21314 wrote it (release, files.tsv, blobs.tsv)
+  cut -f1,3 "$state/sums.tsv" > "$state/files.tsv"
+  mv "$state/sums.tsv" "$t/sums.tsv.$1" && mv "$state/hashed.tsv" "$t/hashed.tsv.$1"
+}
+logs() { : > "$HF/fetched.log" && : > "$HF/hashed.log" && : > "$HF/api.log"; }
+pre5 migrate && logs
+out=$("$script" --migrate) || fail "--migrate of an old record whose files are right"
+echo "$out" | grep -q "Nothing is deleted or downloaded" || fail "--migrate did not say what it does: $out"
+[ "$(cat "$HF/api.log")" = "$B" ] && [ ! -s "$HF/fetched.log" ] || fail "--migrate: asked"\
+  "$(tr '\n' ' ' < "$HF/api.log"), fetched $(tr '\n' ' ' < "$HF/fetched.log") (want the list of B only)"
+[ "$(sort "$HF/hashed.log" | uniq -c | awk '{ print $2 "=" $1 }' | tr '\n' ' ')" = "sha1sum=3 sha256sum=1 " ] ||
+  fail "--migrate hashed: $(sort "$HF/hashed.log" | uniq -c | tr '\n' ' ') (want each of the 4 files once)"
+cmp -s "$state/sums.tsv" "$t/sums.tsv.migrate" && [ ! -e "$state/files.tsv" ] ||
+  fail "--migrate: the record's hashes differ from the fetch's, or files.tsv is still there"
+: > "$HF/hashed.log"
+"$script" --check > /dev/null && [ ! -s "$HF/hashed.log" ] || fail "check after --migrate"
+
+pre5 wrong && logs
+printf NEW > "$MODEL/config.json"                                # the size of new, other bytes
+for how in --migrate fetch; do
+  rc=0; err=$("$script" ${how/fetch/} 2>&1) || rc=$?
+  [ "$rc" = 1 ] && echo "$err" | grep -q "^MISMATCH config.json: .* (blob)$" &&
+    echo "$err" | grep -q "the record stays as it was, nothing was deleted or fetched" ||
+    fail "$how of an old record with a wrong config.json: exit $rc: $err"
+  [ "$(cat "$MODEL/config.json")" = NEW ] && [ ! -s "$HF/fetched.log" ] && [ ! -e "$state/sums.tsv" ] &&
+    [ -s "$state/files.tsv" ] || fail "$how of an old record with a wrong config.json changed something:"\
+      "config.json $(cat "$MODEL/config.json"), fetched $(tr '\n' ' ' < "$HF/fetched.log")"
+done
+"$script" --force > /dev/null 2>&1 || fail "--force after the wrong config.json"
+"$script" --check > /dev/null || fail "check after --force"
+[ "$(cat "$MODEL/config.json")" = new ] && [ "$(cat "$HF/fetched.log")" = "$B/config.json" ] &&
+  [ ! -e "$state/files.tsv" ] ||
+  fail "--force: config.json $(cat "$MODEL/config.json"), fetched $(tr '\n' ' ' < "$HF/fetched.log")"
+
+pre5 differ && logs
+sed -i "s|^[0-9a-f]*\tkeep/same.txt\$|$(printf '0%.0s' {1..40})\tkeep/same.txt|" "$state/blobs.tsv"
+sed -i 's|^2\tadded.txt$|3\tadded.txt|' "$state/files.tsv"
+cp "$state/blobs.tsv" "$t/blobs.tsv.differ" && cp "$state/files.tsv" "$t/files.tsv.differ"
+rc=0; err=$("$script" --migrate 2>&1) || rc=$?
+[ "$rc" = 1 ] && echo "$err" | grep -q "^fetch-release.sh: keep/same.txt: not the blob id and size" &&
+  echo "$err" | grep -q "^fetch-release.sh: added.txt: not the blob id and size" &&
+  echo "$err" | grep -q "Nothing was deleted or fetched" || fail "--migrate of a record that differs: exit $rc: $err"
+[ ! -s "$HF/hashed.log" ] && [ ! -s "$HF/fetched.log" ] && [ ! -e "$state/sums.tsv" ] &&
+  cmp -s "$state/blobs.tsv" "$t/blobs.tsv.differ" && cmp -s "$state/files.tsv" "$t/files.tsv.differ" ||
+  fail "--migrate of a record that differs: hashed $(tr '\n' ' ' < "$HF/hashed.log"),"\
+    "fetched $(tr '\n' ' ' < "$HF/fetched.log"), or it changed the record"
 
 echo "fetch-release test OK ($t)"

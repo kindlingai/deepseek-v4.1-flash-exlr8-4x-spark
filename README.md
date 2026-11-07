@@ -131,11 +131,17 @@ In our run that copy, to all three at once, took about 4.5 minutes (about 1.9 GB
 held about 27 GB from an earlier try): one fetch and the copy took about 80 minutes in all, against about 5.7 hours
 for four fetches at once. A copy is whole when no `FAILED` line printed and its volume holds at least 510597801105
 bytes. Then run the fetch on each of the other three: it hashes every file and fetches only the wrong ones. We have
-not timed that hash check yet. A sparse copy, with every file at its full size but only some of its bytes written, is
-not the whole release; the fetch finds those files and fetches them again.
+timed that hash pass only in the migration below: 60 s a box. A sparse copy, with every file at its full size but only
+some of its bytes written, is not the whole release; the fetch finds those files and fetches them again.
 
 After you update the image, run the fetch once more on every box: it checks every file and downloads only what is
 wrong or missing.
+
+A release fetched with an image older than `sha-fe21314`, such as `sha-661d148`, has a record without hashes. The
+fetch, and the container when it starts, migrate that record: they get only the file list, check that every file has
+the blob id and size the record lists, then hash every file once, check only. On four boxes at once, with local NVMe
+and the default `FETCH_JOBS=8`, that took 60 s a box. The migration deletes and downloads nothing. If a file does not
+match, it names the file and stops, and `fetch --force` deletes that file and fetches it again.
 
 Then run the published image on all four boxes with the same settings. Without `mentat`, replace `<head>`, `<box2>`,
 `<box3>` and `<box4>` with the four boxes' 10G LAN addresses, the same list on every box. The head is the first box in

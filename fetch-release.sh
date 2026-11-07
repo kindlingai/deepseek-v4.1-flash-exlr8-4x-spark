@@ -15,10 +15,18 @@
 # release does not have, and fetches it again; files with the same content stay. A MODEL that holds files but has no
 # record is refused: the script cannot tell which release they came from.
 #
-#   fetch-release.sh            fetch what is missing or wrong (FETCH_JOBS files at once, 8 by default), then check
+# A record from an image built before the script hashed (#5: blob ids and sizes, no hashes) is migrated, not fetched
+# again: the script fetches only the file list, checks that every path has the record's blob id and size, then hashes
+# every file once, check only, and writes the hashes into the record. It deletes and downloads nothing. A file that
+# differs is named and the script stops; --force deletes such files and fetches them again.
+#
+#   fetch-release.sh            fetch what is missing or wrong (FETCH_JOBS files at once, 8 by default), then check;
+#                               migrate an old record instead
+#   fetch-release.sh --force    the same, and a file that differs from an old record is deleted and fetched again
 #   fetch-release.sh --check    exit 0 when MODEL holds the whole release RELEASE names, else 1 (no network): every
 #                               file at its size, then at its hash (FETCH_JOBS files at once). OK or MISMATCH for each
 #                               file it hashes
+#   fetch-release.sh --migrate  migrate an old record (exit 1 when a file differs); exit 0 at once when there is none
 set -euo pipefail
 url=${RELEASE:?RELEASE is not set}
 dest=${MODEL:?MODEL is not set}
@@ -55,19 +63,74 @@ verify() {  # $1 = "size TAB hash TAB path": 0 when the file has that size and t
   { printf '%s\t%s\t%s\n' "$sig" "$sum" "$path" >> "$hashed"; } 2> /dev/null || true
 }
 
-whole() {
-  if [ ! -s "$list" ] || [ "$(cat "$state/release" 2>/dev/null)" != "$repo@$rev" ]; then
+whole() {  # $1 = the list to check against, the record's by default
+  local l=${1:-$list} size sum path
+  if [ ! -s "$l" ] || [ "$(cat "$state/release" 2>/dev/null)" != "$repo@$rev" ]; then
     echo "fetch-release.sh: no record that $dest holds $repo@$rev, with each file's hash (run the fetch)" >&2
     return 1
   fi
-  local size sum path
   while IFS=$'\t' read -r size sum path; do   # the sizes first: quick
     [ "$(stat -c %s "$dest/$path" 2>/dev/null)" = "$size" ] ||
       { echo "fetch-release.sh: $path is missing or not at its size" >&2; return 1; }
-  done < "$list"
+  done < "$l"
   touch "$hashed" 2> /dev/null ||
     echo "fetch-release.sh: cannot write $hashed: every check hashes every file again" >&2
-  tr '\n' '\0' < "$list" | xargs -0 -n 1 -P "${FETCH_JOBS:-8}" "$0" --verify || return 1   # then the hashes
+  tr '\n' '\0' < "$l" | xargs -0 -n 1 -P "${FETCH_JOBS:-8}" "$0" --verify || return 1   # then the hashes
+}
+
+newlist() {  # the release's file list from Hugging Face, into $list.new and $blobs.new
+  curl -fsSL ${auth[@]+"${auth[@]}"} "https://huggingface.co/api/models/$repo/revision/$rev?blobs=true" > "$state/api.json"
+  jq -e '.siblings | length > 0 and
+      all(.[]; .size != null and .blobId != null and (.lfs == null or .lfs.sha256 != null))' "$state/api.json" \
+    > /dev/null ||
+    { echo "fetch-release.sh: no file list with sizes, blob ids and hashes for $repo@$rev" >&2; exit 1; }
+  jq -r '.siblings[] | "\(.size)\t\(if .lfs then "sha256:\(.lfs.sha256)" else "blob:\(.blobId)" end)\t\(.rfilename)"' \
+    "$state/api.json" > "$list.new"
+  jq -r '.siblings[] | "\(.blobId)\t\(.rfilename)"' "$state/api.json" > "$blobs.new"
+  rm -f "$state/api.json"
+  ! cut -f3 "$list.new" | grep -qE '^/|(^|/)\.\.(/|$)' ||
+    { echo "fetch-release.sh: a file of $repo@$rev has a path outside MODEL" >&2; exit 1; }
+}
+
+old_record() {  # a record from before the script hashed, for this release: blob ids and sizes, no hashes
+  [ "$(cat "$state/release" 2>/dev/null)" = "$repo@$rev" ] && [ ! -s "$list" ] && [ -s "$blobs" ] &&
+    [ -s "$state/files.tsv" ]
+}
+
+migrate() {  # the old record to one with hashes, after a check-only hash pass: nothing deleted, nothing downloaded
+  local differ files want secs start
+  newlist
+  differ=$(awk -F'\t' 'FILENAME == ARGV[1] { ob[$2] = $1; next } FILENAME == ARGV[2] { os[$2] = $1; next }
+      FILENAME == ARGV[3] { nb[$2] = $1; next } { ns[$3] = $1 }
+      END { for (p in ob) if (!(p in nb) || ob[p] != nb[p] || os[p] != ns[p]) print p
+            for (p in nb) if (!(p in ob)) print p }' "$blobs" "$state/files.tsv" "$blobs.new" "$list.new")
+  if [ -n "$differ" ]; then
+    rm -f "$list.new" "$blobs.new"
+    while IFS= read -r path; do
+      echo "fetch-release.sh: $path: not the blob id and size the old record has for it" >&2
+    done <<< "$differ"
+    echo "fetch-release.sh: the record beside $dest is from an image older than sha-fe21314 and differs from" \
+      "$repo@$rev at the files above. Nothing was deleted or fetched. 'fetch --force' fetches them again." >&2
+    exit 1
+  fi
+  files=$(wc -l < "$list.new")
+  want=$(awk -F'\t' '{ s += $1 } END { printf "%.0f", s }' "$list.new")
+  secs=$(( (want + 4250000000) / 8500000000 ))      # 8.5 GB/s: 510.6 GB in 60 s on a DGX Spark's own NVMe (#17)
+  [ "$secs" -gt 0 ] || secs=1
+  echo "fetch-release.sh: the record beside $dest is from an image older than sha-fe21314, without hashes, and" \
+    "matches $repo@$rev. Hashing all $files files ($((want / 1000000000)) GB) once to add them, check only:" \
+    "about $secs s on a DGX Spark's own NVMe, longer on a slower disk. Nothing is deleted or downloaded."
+  start=$(date +%s)
+  if ! whole "$list.new"; then
+    rm -f "$list.new" "$blobs.new"
+    echo "fetch-release.sh: the files above are not the release's: the record stays as it was, nothing was" \
+      "deleted or fetched. 'fetch --force' fetches them again." >&2
+    exit 1
+  fi
+  mv "$list.new" "$list"
+  mv "$blobs.new" "$blobs"
+  rm -f "$state/files.tsv"
+  echo "fetch-release.sh: the record now has every file's hash, and every hash is right ($(( $(date +%s) - start )) s)"
 }
 
 get() {  # $1 = path, $2 = size: fetch the rest of the file
@@ -97,30 +160,24 @@ one() {  # $1 = "size TAB hash TAB path": fetch one file unless it is already wh
   get "$path" "$size" && verify "$1"
 }
 
+force=
 case "${1:-}" in
   --check) whole; exit ;;
+  --migrate) if old_record; then migrate; fi; exit ;;
   --one) one "$2"; exit ;;
   --verify) verify "$2"; exit ;;
+  --force) force=1 ;;
   '') ;;
-  *) echo "fetch-release.sh: want no argument, or --check" >&2; exit 2 ;;
+  *) echo "fetch-release.sh: want no argument, --force, --check or --migrate" >&2; exit 2 ;;
 esac
 
+if [ -z "$force" ] && old_record; then migrate; exit; fi
 mkdir -p "$state" "$dest"
 # The file list again when RELEASE changed, when the record has no hashes (a fetch from before the script hashed), or
 # always when RELEASE names a branch rather than a commit (a branch moves)
 if [ "$(cat "$state/release" 2>/dev/null)" != "$repo@$rev" ] || [ ! -s "$list" ] || [ ! -s "$blobs" ] ||
    ! [[ $rev =~ ^[0-9a-f]{40}$ ]]; then
-  curl -fsSL ${auth[@]+"${auth[@]}"} "https://huggingface.co/api/models/$repo/revision/$rev?blobs=true" > "$state/api.json"
-  jq -e '.siblings | length > 0 and
-      all(.[]; .size != null and .blobId != null and (.lfs == null or .lfs.sha256 != null))' "$state/api.json" \
-    > /dev/null ||
-    { echo "fetch-release.sh: no file list with sizes, blob ids and hashes for $repo@$rev" >&2; exit 1; }
-  jq -r '.siblings[] | "\(.size)\t\(if .lfs then "sha256:\(.lfs.sha256)" else "blob:\(.blobId)" end)\t\(.rfilename)"' \
-    "$state/api.json" > "$list.new"
-  jq -r '.siblings[] | "\(.blobId)\t\(.rfilename)"' "$state/api.json" > "$blobs.new"
-  rm -f "$state/api.json"
-  ! cut -f3 "$list.new" | grep -qE '^/|(^|/)\.\.(/|$)' ||
-    { echo "fetch-release.sh: a file of $repo@$rev has a path outside MODEL" >&2; exit 1; }
+  newlist
   if [ -s "$blobs" ]; then
     # Another release (or the branch moved): delete each file whose content the new release does not have at that path
     awk -F'\t' 'FILENAME == ARGV[1] { old[$2] = $1; next } { new[$2] = $1 }
