@@ -325,7 +325,7 @@ measured on four GB10 boxes with an earlier gr8 build. Q3's switches were on, th
 | change | you gain | you give up | measured |
 |---|---|---|---|
 | `SESS=5` | With 8 chats, the 5 that run write 68-69 tok/s each, against 51-56 when 10 slots let all 8 run. The total stays at about 235-275 tok/s from 8 chats up. Each 262,144-token slot dropped frees about 0.35 GiB a box at ready. | Chats beyond 5 wait for a slot. With 16 chats, 11 wait, and the first word comes in 5.4-5.5 s, against 4.2-4.4 s with 10 or 16 slots. | [Q1](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q1-how-many-chats-at-once), 5, 10 and 16 slots; 32 slots were not part of Q1 |
-| `CAP=1048576 SESS=16` (`TUNE=context`) | One chat can hold 1,048,566 tokens. | A 1,031,542-token prompt takes 388.7 s to read (image `sha-15b7eec`, 2026-11-07; about 417 s on the earlier build named below), and the same prompt again takes 1.19 s from the prefix cache. Recall at 1M found all 3 hidden facts in 2 of 7 prompts (earlier build; not re-measured on `sha-15b7eec`). 8.7-9.4 GiB free a box at ready on `sha-15b7eec` (9.8-10.0 on the earlier build). | [Q2](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q2-how-long-can-one-chat-be), 16 slots, `GR8_DS_CACHE_MIB=2048`; the 2026-11-07 rows are the image `sha-15b7eec` (More numbers); 32 slots at 1M were not tested |
+| `CAP=1048576 SESS=16` (`TUNE=context`) | One chat can hold 1,048,566 tokens. | A 1,031,542-token prompt takes 388.7 s to read (image `sha-15b7eec`, 2026-11-07; about 417 s on the earlier build named below), and the same prompt again takes 1.19 s from the prefix cache. Recall at 1M found all 3 hidden facts in 2 of 7 prompts (earlier build; not re-measured on `sha-15b7eec`). 8.7-9.4 GiB free a box just after ready on `sha-15b7eec` (9.8-10.0 on the earlier build). | [Q2](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/docs/FIRST-BOOT.md#q2-how-long-can-one-chat-be), 16 slots, `GR8_DS_CACHE_MIB=2048`; the 2026-11-07 rows are the image `sha-15b7eec` (More numbers); 32 slots at 1M were not tested |
 
 ## The prefix cache
 
@@ -363,7 +363,7 @@ The rows are the four runs, two on each boot, as a range:
 | the release | 510.6 GB in 604 files, on every box |
 
 The same three workloads, one stream, on the image `sha-15b7eec` (2026-11-07, one run): code 147.3 / prose 82.3 /
-structured 156.5 tok/s, and a counting workload at 163.4 tok/s. That image builds a `main` later than `5381433`.
+structured 156.5 tok/s, and a counting workload at 163.4 tok/s.
 
 The image `sha-1938a1d` is the first with `GR8_DS_MHC_Y_MXFP8=1` in `TUNE=speed`. Prompt reading on it, at the
 defaults, on the switch setup (the four boxes on a 200G switch, one port each), one boot: 32K about 5,120 tok/s (the
@@ -398,8 +398,9 @@ through our own test harness, not this image.
 ### `TUNE=context`
 
 One boot on 2026-11-07 of the image `sha-15b7eec`, on four DGX Sparks: `CAP` 1,048,576, 16 chat slots and
-`GR8_DS_CACHE_MIB` 2,048, which is what `TUNE=context` sets. Ready 87 s after the containers started, with 8.7-9.4 GiB
-free a box.
+`GR8_DS_CACHE_MIB` 2,048, which is what `TUNE=context` sets. Serving came up 87 s after the start commands completed -
+the poll for the serving line began then, not at container start - with 8.7-9.4 GiB free a box, sampled about 15 s after
+serving came up.
 
 One cold 1,031,542-token prompt (1,030,032 tokens prefilled; the cache held nothing from it before):
 
@@ -409,8 +410,11 @@ One cold 1,031,542-token prompt (1,030,032 tokens prefilled; the cache held noth
 | the same prompt again | 1.19 s to its first word, 1,030,031 tokens served from the prefix cache |
 | reply speed after the prompt | 91.9 tok/s, the bench's own probe |
 
-Three chats that each send that same 1M prompt again, at once: first words in 2.9-3.9 s and replies at 13.9-28.9 tok/s
-a chat, with 1.6-2.8 GiB free a box at the lowest sample. Three distinct cold 1M prompts at once were not measured.
+Three chats that each send a 1M probe prompt again, at once - a different prompt from the bench one above, sent once by
+a single-chat probe first (393.1 s to read it fresh), so these reads hit that prompt's prefix cache. First words in 2.9-3.9
+s. The probe's reply rates, 13.9-28.9 a chat, count stream chunks rather than tokens, on replies of only 6, 11 and 6
+counted chunks: short-probe rates, not sustained token rates. The three lowest free-memory samples across the four boxes
+were 1.6, 2.4 and 2.8 GiB. Three distinct cold 1M prompts at once were not measured.
 
 A quick bench on the same boot. It ran with the context knobs, and its `GR8_DS_CACHE_MIB` is 2,048 where `TUNE=speed`
 sets 4,096, so its prompt-reading rows do not compare with the fast-mode ones:
