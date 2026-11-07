@@ -111,24 +111,26 @@ bytes written, is not the whole release; the fetch finds those files and fetches
 After you update the image, run the fetch once more on every box: it checks every file and downloads only what is
 wrong or missing.
 
-Then run the published image on all four boxes with the same settings. Without `mentat`, this names the boxes as in
-the netplan example above:
+Then run the published image on all four boxes with the same settings. Without `mentat`, replace `<head>`, `<box2>`,
+`<box3>` and `<box4>` with the four boxes' 10G LAN addresses, the same list on every box. The head is the first box in
+`PEERS`: it serves the API on port 8100. `IPS` and `IPS2` are the ConnectX addresses from the netplan example above:
+use yours.
 
 ```bash
 docker run -d --name ds41-4x-spark --gpus all --network host --pid host --device /dev/infiniband \
   --ulimit memlock=-1 --ulimit core=0 --cap-drop ALL --cap-add IPC_LOCK \
   --security-opt no-new-privileges --read-only --tmpfs /tmp:size=1g,mode=1777 --init --oom-score-adj 1000 \
-  -e PEERS=192.168.100.10,192.168.100.11,192.168.100.12,192.168.100.13 \
+  -e PEERS=<head>,<box2>,<box3>,<box4> \
   -e IPS=10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4 -e IPS2=10.0.1.1,10.0.1.2,10.0.1.3,10.0.1.4 \
   -v ds41-release:/var/lib/gr8/release -v ds41-home:/var/lib/gr8/home \
   ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest
 docker logs -f ds41-4x-spark     # on the head: ready at "serving: http://..."
 ```
 
-With `mentat` running, replace the three addresses with `-e MENTAT=1`. A container stops at once, and says why, if
-the release on its box is not whole. The boxes wait for each other for 10 minutes (gr8's `JOIN_TIMEOUT`, 600 s), so
-start all four within that time. Expect about 2 minutes to ready: in our run the head printed `serving:` 104 s after
-the four containers started.
+With `mentat` running, replace the `PEERS`, `IPS` and `IPS2` settings with `-e MENTAT=1`: then the head is the box with
+the lowest address. A container stops at once, and says why, if the release on its box is not whole. The boxes wait for
+each other for 10 minutes (gr8's `JOIN_TIMEOUT`, 600 s), so start all four within that time. Expect about 2 minutes to
+ready: in our run the head printed `serving:` 104 s after the four containers started.
 
 The head serves an OpenAI-compatible API on port 8100. The model's name is `deepseek-v4.1-flash`:
 
