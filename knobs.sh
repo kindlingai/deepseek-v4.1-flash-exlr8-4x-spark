@@ -5,7 +5,8 @@
 #             mentat cluster, in group GROUP (gr8-ds41-4x by default).
 #   TUNE=speed (default): fast mode, the settings measured in README.md. FIRST-BOOT.md Q3's two switches and Q4's
 #             output head, which change the output; three prefill settings of gr8/docs/ENV.md (GR8_DS_ATTN_TC_MF=2,
-#             GR8_DS_ATTN_TC_TILE=1, GR8_DS_MHC_ROW_SHARD=1); and, unless set, SESS=32 and CAP=327680. The image's
+#             GR8_DS_ATTN_TC_TILE=1, GR8_DS_MHC_ROW_SHARD=1); GR8_DS_MHC_Y_MXFP8=1 (speed only, README.md); and, unless set,
+#             SESS=32 and CAP=327680. The image's
 #             engine is built with DS41_MX=48 (Dockerfile), so a step holds 48 rows.
 #   TUNE=context: fast mode's six switches, GR8_DS_CACHE_MIB=2048 and, unless set, SESS=16 and CAP=1048576
 #             (FIRST-BOOT.md Q2).
@@ -28,7 +29,7 @@ ds_words="GR8_DS_ENGRAM=1 GR8_DS_ENGRAM_PREFIX=${ENGRAM_PREFIX:?}"
 fast="GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1"
 fast="$fast GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1"
 case "${TUNE:-speed}" in
-  speed) ds_words="$ds_words $fast"; SESS=${SESS:-32} CAP=${CAP:-327680} ;;
+  speed) ds_words="$ds_words $fast GR8_DS_MHC_Y_MXFP8=1"; SESS=${SESS:-32} CAP=${CAP:-327680} ;;
   context) ds_words="$ds_words $fast GR8_DS_CACHE_MIB=2048"; SESS=${SESS:-16} CAP=${CAP:-1048576} ;;
   quality) SESS=${SESS:-5} CAP=${CAP:-262144} ;;
   *) echo "TUNE=$TUNE: want speed (fast mode, the default), context (one chat up to 1M tokens) or quality (the exact model)" >&2; exit 2 ;;
