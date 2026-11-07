@@ -322,6 +322,25 @@ The boxes were four DGX Sparks on one switch, for both. Their CPUs were kept out
 `cpu_dma_latency` 0), and memory was compacted before each boot. Both are box settings outside gr8. The boots went
 through our own test harness, not this image.
 
+## Run another model
+
+A box runs one model at a time, and gr8 does not start while another gr8 engine runs on it. To switch, stop and remove
+this recipe's container on every box:
+
+```bash
+docker stop ds41-4x-spark && docker rm ds41-4x-spark   # compose: docker compose down
+```
+
+The release stays in the `ds41-release` volume, so this recipe starts again later without a new fetch. To free its
+510.6 GB, remove the volumes on every box:
+
+```bash
+docker volume rm ds41-release ds41-home
+```
+
+[gr8's Recipes](https://github.com/kindlingai/gr8#recipes) lists the other models and the number of boxes each one
+needs.
+
 ## For your agent
 
 - [AGENTS.md](AGENTS.md): how to boot this recipe and check that it serves, every knob, and what each `TUNE` value
