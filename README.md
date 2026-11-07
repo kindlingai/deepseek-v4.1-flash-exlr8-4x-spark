@@ -241,6 +241,11 @@ KV cache is always fp8. The image's engine is built with `DS41_MX=48`: a decode 
 default 32, so a step can verify 6 rows for each of 8 chats
 ([gr8/engine/runtime/build_m4.sh](https://github.com/kindlingai/gr8/blob/5381433c940b51223f8287f93b0c484c806207e9/engine/runtime/build_m4.sh)).
 
+One trade you can make this way: `EXTRA_ENV=GR8_DS_PF_LANES=1` (gr8's default is 2) frees about 5 GiB of host memory
+per Spark (measured on the switch setup, one run) for slower 32K prompt reading: about 6% slower with the four boxes
+on a 200G switch and about 10% slower on a direct cabled ring (`SHAPE=ring`). Both 4-box setups measured on this
+image, both arm orders, fresh boot per arm, warm-up passes discarded. `TUNE` does not set it.
+
 ## Pick what to prioritize
 
 `TUNE` picks one of three sets of settings (`knobs.sh`). A `CAP` or `SESS` you set yourself keeps your value, and
