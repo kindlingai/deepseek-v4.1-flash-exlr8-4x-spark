@@ -245,6 +245,9 @@ One trade you can make this way: `EXTRA_ENV=GR8_DS_PF_LANES=1` (gr8's default is
 per Spark (measured on the switch setup, one run) for slower 32K prompt reading: about 6% slower with the four boxes
 on a 200G switch and about 10% slower on a direct cabled ring (`SHAPE=ring`). Both 4-box setups measured on this
 image, both arm orders, fresh boot per arm, warm-up passes discarded. `TUNE` does not set it.
+`GR8_DS_COMP_FP8=1`: about 3% faster 32K prompt reading on the median of four paired passes in each of two boots
+(+2.9% / +3.4%); it cleared the pass-to-pass spread in one boot and not the other, and the gate requires both, so it is
+not a default.
 
 ## Pick what to prioritize
 
