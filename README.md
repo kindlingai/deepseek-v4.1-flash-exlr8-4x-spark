@@ -415,23 +415,24 @@ The release check at each start reads only the files that changed since the last
 the 510.6 GB again (about 1 s).
 
 **Measured on 2026-11-07**, four GB10 boxes cabled in a ring: two DGX Sparks and two GB10 boxes from another maker
-whose NVMe is PCIe Gen4. Warm (gen cache written), two runs each way. "Down" is the old model's `down` on all four.
-"Wait after `up -d` returns" runs from the moment the new model's `up -d` returns until `/health` reports ready. The
-total runs from the start of `down` to ready, so it also holds the 3.1-3.3 s between `down` finishing and `up -d`
-returning, including orchestration:
+whose NVMe is PCIe Gen4. GLM-5.3 from the image `ghcr.io/kindlingai/gr8:sha-4ed9e7b`, this recipe from
+`sha-50a8773`. Warm (gen cache written), two runs each way. "Down" is the old model's `down` on all four, until all
+four have returned. "Wait after `up -d` returns" runs from the moment the new model's `up -d` returns until `/health`
+reports ready. The total runs from the start of `down` to ready, so it also holds the 3.0-3.4 s between `down`
+finishing and `up -d` returning, including orchestration:
 
 | Switch | Down | Wait after `up -d` returns | Total |
 |---|---|---|---|
-| GLM-5.3 to DeepSeek | 19.3-21.1 s | 34.9-35.6 s | 58.0-59.3 s |
-| DeepSeek to GLM-5.3 | 12.8-13.4 s | 71.0-71.2 s | 87.2-87.5 s |
+| GLM-5.3 to DeepSeek | 6.8-7.0 s | 41.2-42.3 s | 51.2-52.4 s |
+| DeepSeek to GLM-5.3 | 3.9-4.1 s | 71.5-72.6 s | 78.5-79.8 s |
 
-- A GLM chat that lived through GLM to DeepSeek to GLM answers its next turn in 0.16-0.20 s (time to first token, four
-  chats of ~5,400 tokens, both runs). Their first turn, a cold prefill, took 3.8-4.2 s. The resumed answers were the
-  same in both runs.
-- The slowest boxes set each start. DeepSeek: the DGX Spark ranks were ready 13-15 s after the start, the Gen4 boxes
-  27-30 s, reading 79.6 GB of gen cache each. GLM-5.3: the DGX Sparks read their 78.3 GB of weights in 15 s, the Gen4
-  boxes in 59-60 s. The loader, not the drive, sets that time: it reads at 31-46% of each drive's sequential speed.
-- The first DeepSeek start of an image writes its gen cache: 226 s from `up -d` returning to ready, and 79.6 GB on
+- A GLM chat that lived through GLM to DeepSeek to GLM answers its next turn in 0.17-0.30 s (time to first token, four
+  chats, both runs). Their first turn, a cold prefill, took 3.8-3.9 s. The resumed answers were the same in both runs.
+  At each GLM stop, every rank kept 4 chats on the SSD in 149-696 ms.
+- The slowest boxes set each start. DeepSeek: the DGX Spark ranks were loaded 13.7-15.5 s after their engine started,
+  the Gen4 boxes 28.1-38.3 s, reading 79.6 GB of gen cache each. GLM-5.3: the DGX Sparks read their 78.3 GB of weights
+  in 14.6-15.1 s, the Gen4 boxes in 59.1-61.1 s.
+- The first DeepSeek start of an image writes its gen cache: 242 s from `up -d` returning to ready, and 79.6 GB on
   each box's disk. GLM's is 4.8 GB a box; its first start took 73 s from `up -d` returning to ready.
 
 ## Run another model
