@@ -3,6 +3,7 @@
 # port 8100.
 #
 #   docker compose run --rm gr8 fetch   # once on every box: the whole release, 510.6 GB, into the release volume
+#   ./install-seccomp.py                # local Docker default plus io_uring (warning + builtin on failure)
 #   docker compose up -d                # pulls the image (CI publishes it) and joins the other three boxes
 #   docker compose up -d --build        # or builds the image here from the gr8 submodule
 #   docker compose logs -f              # the supervisor, ready when it prints that the cluster serves
@@ -50,6 +51,8 @@ services:
     cap_add: [IPC_LOCK]
     security_opt:
       - no-new-privileges:true
+      # Written by install-seccomp.py; builtin is the safe fallback when no local profile was installed.
+      - seccomp=${SECCOMP_PROFILE:-builtin}
     read_only: true
     tmpfs:
       - /tmp:size=1g,mode=1777

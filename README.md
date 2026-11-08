@@ -127,6 +127,7 @@ git clone --recurse-submodules https://github.com/kindlingai/deepseek-v4.1-flash
 cd deepseek-v4.1-flash-exlr8-4x-spark
 cp .env.example .env          # set PEERS, IPS and IPS2: the same file on every box
 docker compose run --rm gr8 fetch
+./install-seccomp.py
 docker compose up -d
 docker compose logs -f
 ```
@@ -135,6 +136,17 @@ Fetch first: compose restarts a container that stops with an error, so without t
 again until the fetch is done.
 
 `docker compose up -d --build` builds the image on the box instead.
+
+`install-seccomp.py` needs Python 3, curl and access to Docker. It detects the Docker **server** version and fetches
+that version's default profile from the official Moby `docker-v<version>` tag. It adds only `io_uring_setup`,
+`io_uring_enter` and `io_uring_register`, writes `seccomp-iouring.json` next to `compose.yaml`, and updates only
+`SECCOMP_PROFILE` in `.env`. The generated profile is not shipped in this repo or image. Run it on each box before
+starting Compose and again after a Docker upgrade. It does not start or restart containers.
+
+If the version lookup or fetch fails, it warns and selects Docker's `builtin` profile (not `unconfined`), so Compose
+can still start without the generated profile. An io_uring-capable Engram build can then use its pread fallback.
+An old generated file is not selected after a failed update. The override applies only to this recipe's service;
+it does not alter Docker's daemon settings or other containers. `docker run` commands above keep Docker's default.
 
 ## Knobs
 
