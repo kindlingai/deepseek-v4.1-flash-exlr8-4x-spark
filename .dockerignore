@@ -7,3 +7,6 @@ gr8/.git
 .DS_Store
 docs
 kindling.json
+
+# Generated locally from the installed Docker version, never shipped.
+seccomp-iouring.json
