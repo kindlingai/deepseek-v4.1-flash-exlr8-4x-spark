@@ -108,23 +108,6 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
      ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
    ```
 
-   The download is slow. In our run one box alone fetched the whole release in 74 minutes (4,420 s as the fetch
-   reported it, 0.92 Gb/s on average). Four boxes at once got about 0.2 Gb/s each on the three boxes we logged (the
-   fourth was not logged), which is about 5.7 hours (computed, not timed). So fetch on one box, then copy the whole
-   `ds41-release` volume (the release and the `.fetch-*` record beside it) to the other three over the ConnectX ports.
-   Check each copy before you run the fetch on that box: the copy (the README's Quickstart has the command) must print
-   no `FAILED` line, and the volume must hold at least 510597801105 bytes:
-
-   ```bash
-   sudo du -sb "$(docker volume inspect ds41-release --format '{{ .Mountpoint }}')"
-   ```
-
-   A failed copy is easy to miss: in our run the first rsync exited 23 after 0 s and left each volume at about 10 GB.
-   In our run the copy to all three at once took 260 s, about 1.9 GB/s to each box (each already held about 27 GB
-   from an earlier try). Then run the fetch on each box that got the copy: it hashes every file and fetches only the
-   wrong ones. That hash pass is timed only in the migration below: 60 s a box. A sparse copy (every file at its full
-   size, only some bytes written) is not whole. Files copied without the record are refused.
-
    After you update the image, run the fetch once more on every box before you boot: it checks every file and
    downloads only what is wrong or missing.
 
@@ -201,7 +184,7 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 | `ds41-4x: the release in ... is not whole: run the fetch first, on every box` | run the fetch (step 1) on that box. With compose, the container restarts and stops again until the fetch is done |
 | `fetch-release.sh: no record that ... holds ..., with each file's hash (run the fetch)` | the volume holds another release: run the fetch (step 1). It hashes the files that are there and fetches only the wrong or missing ones |
 | `ds41-4x: the fetch record beside ... is from an older image and was not migrated (above)` | the release was fetched with an image older than `sha-fe21314`, and the lines above name each file that differs from the release. Nothing was deleted. On that box, run the fetch (step 1) with `fetch --force` in place of `fetch`: it deletes those files and fetches them again |
-| `fetch-release.sh: ... holds files but there is no record of their release ...: empty it first` | the volume holds files the fetch did not put there: copy the `.fetch-*` record beside the release with them (step 1), or empty the volume and fetch |
+| `fetch-release.sh: ... holds files but there is no record of their release ...: empty it first` | the volume holds files the fetch did not put there: empty the volume and fetch (step 1) |
 | `MISMATCH <file>: ...` | that file has its full size but not the content the release lists (a sparse or damaged copy): run the fetch (step 1), which fetches it again |
 | `TUNE=...: want speed ..., context ... or quality ...` | use one of the three values |
 | `EXACT=...: EXACT is now TUNE ...` | remove `EXACT`; set `TUNE=quality` for the exact model |
