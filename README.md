@@ -482,6 +482,10 @@ finishing and `up -d` returning, including orchestration:
 - The first DeepSeek start of an image writes its gen cache: 242 s from `up -d` returning to ready, and 79.6 GB on
   each box's disk. GLM's is 4.8 GB a box; its first start took 73 s from `up -d` returning to ready.
 
+The switch into GLM-5.3 is set by GLM-5.3's weight read. With compact expert copies (`GR8_LOAD_COMPACT`, about
+70 GiB a box), that switch took 46.8-47.2 s, against 75.7-77.1 s stock the same day, on the same four boxes (the
+measurements above are a separate session) ([gr8/docs/SWITCHING.md](https://github.com/kindlingai/gr8/blob/main/docs/SWITCHING.md#compact-expert-copies-gr8_load_compact)).
+
 ## Run another model
 
 A box runs one model at a time, and gr8 does not start while another gr8 engine runs on it. To switch, stop and remove
