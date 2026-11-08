@@ -230,8 +230,7 @@ If a step fails for a reason not listed here, ask on the KindlingAI Discord (the
   on the 75-item check in fast mode. The speed numbers in README.md still come from an older gr8 with the same engine
   settings, booted through our own test harness. The KV cache is always fp8, and the image's engine is built with
   `DS41_MX=48`.
-- `TUNE=context` was measured on the image `sha-15b7eec` in one boot on 2026-11-07 (README.md, More numbers,
-  `TUNE=context`): a cold 1,031,542-token prompt read in 388.7 s (2,650 tok/s), the same prompt again in 1.19 s from
+- `TUNE=context` was measured on the image `sha-15b7eec` in one boot on 2026-11-07: a cold 1,031,542-token prompt read in 388.7 s (2,650 tok/s), the same prompt again in 1.19 s from
   the prefix cache, replies after it at 91.9 tok/s, and 8.7-9.4 GiB free a box just after ready. Recall and output
   quality at 1M, and three distinct cold 1M prompts at once, are not measured on that image.
 - Before that, gr8/docs/FIRST-BOOT.md Q2 ran `TUNE=context` on an earlier gr8 build, with 16 slots of 1M each, at most

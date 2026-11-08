@@ -59,7 +59,7 @@ RUN mkdir -p /out \
 
 # g6m4_ds41: DeepSeek-V4.1-Flash-1017, fp8 KV, TP=4 only. build.sh builds it without request grammars, so this stage
 # needs no XGrammar. Its build knobs come from scripts/ds41_build_flags.sh. DS41_MX=48 (engine/runtime/build_m4.sh,
-# opt-in in gr8): 48 rows a step instead of 32, the build fast mode was measured on (README.md, More numbers).
+# opt-in in gr8): 48 rows a step instead of 32, the build fast mode was measured on.
 FROM toolchain AS engine
 WORKDIR /src
 COPY gr8/engine engine
