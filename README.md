@@ -2,7 +2,7 @@
 
 If you are an agent booting this for someone, read [AGENTS.md](AGENTS.md) first, then the Quickstart.
 
-_Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg/8EAvYPV2rE_
+_**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg/8EAvYPV2rE**_
 
 [DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017) on four DGX Sparks (GB10,
 128 GB each) at TP=4, served by [gr8](https://github.com/kindlingai/gr8) from
