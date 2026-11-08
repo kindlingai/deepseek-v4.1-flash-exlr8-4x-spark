@@ -74,29 +74,6 @@ docker run --rm --read-only -v ds41-release:/var/lib/gr8/release \
   ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest fetch
 ```
 
-The download is slow, and four boxes fetching at once share the bandwidth. It is faster to fetch on one box, then copy
-the whole `ds41-release` volume, the release and the `.fetch-*` record beside it, to the other three over the ConnectX
-ports.
-
-To copy, first run `docker volume create ds41-release` on each of the other three. Then, on the box that fetched, run
-the commands below as root. Root on this box must be able to ssh to root on the other three. The addresses are boxes
-2 to 4's ConnectX addresses on PCIe root 1 in the netplan example above (their `IPS` values): use yours. The copy runs
-8 `rsync` streams to each box at once, and prints a `FAILED` line for each stream that fails:
-
-```bash
-V=$(docker volume inspect ds41-release --format '{{ .Mountpoint }}') && cd "$V" &&
-  find . -type f -printf '%P\n' > /tmp/ds41-files && split -n r/8 -d /tmp/ds41-files /tmp/ds41-part. &&
-  for box in 10.0.0.2 10.0.0.3 10.0.0.4; do
-    for part in /tmp/ds41-part.*; do
-      ( rsync -a -W --files-from="$part" "$V/" "root@$box:$V/" || echo "FAILED: $box $part" ) &
-    done
-  done; wait
-for box in 10.0.0.2 10.0.0.3 10.0.0.4; do ssh "root@$box" du -sb "$V"; done   # each: at least 510597801105 bytes
-```
-
-A copy is whole when no `FAILED` line printed and its volume holds at least 510597801105 bytes. Then run the fetch on
-each of the other three: it hashes every file and fetches only the wrong ones.
-
 Then run the published image on all four boxes with the same settings. Without `mentat`, replace `<head>`, `<box2>`,
 `<box3>` and `<box4>` with the four boxes' 10G LAN addresses, the same list on every box. The head is the first box in
 `PEERS`: it serves the API on port 8100. `IPS` and `IPS2` are the ConnectX addresses from the netplan example above:
