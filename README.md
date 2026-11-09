@@ -287,7 +287,7 @@ rows marked "output" change the reply; the others give the same reply faster or 
 
 ## Switch between this and GLM-5.3 on the same four boxes
 
-To run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/main/docs/GLM-5.3.md) at TP=4 on the same
+To run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/GLM-5.3.md) at TP=4 on the same
 four boxes, one model at a time, two settings make the switch fast:
 
 - `GR8_GEN_CACHE` in both models' `EXTRA_ENV` (`.env.example` turns it on for this recipe): the loader keeps the tensors
@@ -304,9 +304,9 @@ four boxes, one model at a time, two settings make the switch fast:
 - **First boot:** the first boot of a new key writes the cache and is slower. A new key comes from a new image, a change
   between `TUNE=quality` and `TUNE=speed` or `context`, a different rank (`PEERS` order), or a different release. Each
   one is a full 79.6 GB rewrite and a slow first boot.
-  gr8's [SWITCHING.md](https://github.com/kindlingai/gr8/blob/main/docs/SWITCHING.md) measured 242 s from `up -d` to
+  gr8's [SWITCHING.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/SWITCHING.md) measured 242 s from `up -d` to
   ready for DeepSeek's first start (2026-11-07, image `sha-50a8773`, four GB10 boxes in a ring, two of them not DGX
-  Sparks; n not stated). gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/main/docs/FIRST-BOOT.md)
+  Sparks; n not stated). gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md)
   measured "engines ready" at 84 s without the cache, 110 s on the boot that writes it, and 16 s after (one boot each).
 - **After the first boot:** a switch from GLM-5.3 into this recipe waited 35.9-36.8 s after `up -d` returned (two runs,
   the same boxes and image, cache written; SWITCHING.md).
