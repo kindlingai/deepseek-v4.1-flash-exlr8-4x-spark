@@ -66,7 +66,8 @@ services:
       # The release, 510.6 GB, read in place: every box holds all of it (fetch-release.sh). Set RELEASE_DIR to a host
       # directory owned by uid 1000 on local NVMe to keep it outside docker.
       - ${RELEASE_DIR:-release}:/var/lib/gr8/release
-      # Logs and state: out/supervisor.log, g6m4.r0.err, shim.log, front.log, and Engram's token map (engram/).
+      # Logs and state: out/supervisor.log, g6m4.r0.err, shim.log, front.log, and Engram's token map (engram/). With
+      # GR8_GEN_CACHE set (.env.example does), the gen cache too: gen-cache/, about 80 GB.
       - ${GR8_HOME_DIR:-home}:/var/lib/gr8/home
     healthcheck:
       test: ["CMD", "/opt/ds41-4x/bin/gr8", "ds41", "health"]
