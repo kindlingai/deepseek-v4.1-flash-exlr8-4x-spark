@@ -157,7 +157,7 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
    ```bash
    git clone --recurse-submodules https://github.com/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark
    cd deepseek-v4.1-flash-exlr8-4x-spark
-   cp .env.example .env          # set PEERS, IPS and IPS2 (or MENTAT=1), and TUNE: the same file on every box
+   cp .env.example .env          # uncomment and set PEERS, IPS and IPS2 (or MENTAT=1), and TUNE: the same file on every box
    docker compose run --rm gr8 fetch
    ./install-seccomp.py
    docker compose up -d

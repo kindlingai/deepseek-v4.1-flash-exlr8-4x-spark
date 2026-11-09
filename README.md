@@ -4,7 +4,7 @@ If you are an agent booting this for someone, read [AGENTS.md](AGENTS.md) first,
 
 _**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg/8EAvYPV2rE**_
 
-[DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017) on four DGX Sparks (GB10,
+DeepSeek-V4.1-Flash (DeepSeek's release [DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017)) on four DGX Sparks (GB10,
 128 GB each) at TP=4, served by [gr8](https://github.com/kindlingai/gr8) from
 [kindlingai/deepseek-v4.1-flash-exlr8-native](https://huggingface.co/kindlingai/deepseek-v4.1-flash-exlr8-native).
 
@@ -76,6 +76,11 @@ network:
       addresses: [10.0.1.1/24]
       mtu: 9000
 ```
+
+The two port names above are the usual ones on a DGX Spark. `ip -br link` lists the names on your box. Two kinds of
+address are in play: the 10G LAN address (`PEERS`) is the box's normal network address, which you reach it by; the
+ConnectX addresses (`IPS`, `IPS2`) are on the 200G ports, one for each PCIe root. MTU 9000 needs a switch and cables that
+carry it.
 
 Then run `sudo netplan apply` on each box. If each box's ConnectX port already has an address on each PCIe root, with
 MTU 9000, skip this step and put those addresses in `IPS` and `IPS2`.
@@ -166,7 +171,7 @@ same `ds41-release` volume as the commands above. On every box:
 ```bash
 git clone --recurse-submodules https://github.com/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark
 cd deepseek-v4.1-flash-exlr8-4x-spark
-cp .env.example .env          # set PEERS, IPS and IPS2: the same file on every box
+cp .env.example .env          # uncomment and set PEERS, IPS and IPS2: the same file on every box
 docker compose run --rm gr8 fetch
 ./install-seccomp.py
 docker compose up -d
@@ -216,7 +221,7 @@ Set these in `.env` next to `compose.yaml` (see `.env.example`), or with `docker
 | `IPS`, `IPS2` | none | Each box's ConnectX address on PCIe root 1 and root 2, in `PEERS` order. |
 | `SHAPE` | unset (a switch) | `ring`: four boxes cabled in a ring, without `IPS` and `IPS2`. |
 | `TUNE` | `speed` | What to prioritize, see below. `EXACT=1`, the older name, is now `TUNE=quality`. |
-| `CAP` | `327680`; `1048576` with `TUNE=context`; `262144` with `TUNE=quality` | The longest chat in tokens, prompt and reply together. Every chat slot gets this much KV at boot. |
+| `CAP` | `327680`; `1048576` with `TUNE=context`; `262144` with `TUNE=quality` | The longest chat in tokens, prompt and reply together. Every chat slot gets this much KV at boot. A request holds at most `CAP` less 10 tokens (327,670 by default). |
 | `SESS` | `32`; `16` with `TUNE=context`; `5` with `TUNE=quality` | Chats at once, 1 to 32. A chat that arrives when every slot is busy waits. |
 | `MENTAT` | `0` | `1` finds the other boxes and the ConnectX addresses through the host's `mentat` daemon, and registers the API in group `GROUP` (`gr8-ds41-4x`). |
 | `RELEASE` | a fixed commit | The release to fetch (`https://huggingface.co/<org>/<repo>@<commit>`). The fetch replaces only the files that differ. |
@@ -285,12 +290,10 @@ four boxes, one model at a time, two settings make the switch fast:
 - **First boot:** the first boot of a new key writes the cache and is slower. A new key comes from a new image, a change
   between `TUNE=quality` and `TUNE=speed` or `context`, a different rank (`PEERS` order), or a different release. Each
   one is a full 79.6 GB rewrite and a slow first boot.
-  gr8's [SWITCHING.md](https://github.com/kindlingai/gr8/blob/main/docs/SWITCHING.md) gives 242 s from `up -d` returning
-  to ready for DeepSeek's first start, measured on 2026-11-07 on four GB10 boxes in a ring (two DGX Sparks and two GB10
-  boxes from another maker, with PCIe Gen4 NVMe) with this recipe's image `sha-50a8773`. It does not state n for that
-  figure. gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/main/docs/FIRST-BOOT.md) gives, for
-  DeepSeek-V4.1-Flash at TP=4, 79.6 GB a rank: "engines ready" 84 s without the cache, 110 s on the boot that writes it,
-  16 s after. That is one boot each (gr8 PR #382, 3 boots with the same options); it states no hardware beyond TP=4.
+  gr8's [SWITCHING.md](https://github.com/kindlingai/gr8/blob/main/docs/SWITCHING.md) measured 242 s from `up -d` to
+  ready for DeepSeek's first start (2026-11-07, image `sha-50a8773`, four GB10 boxes in a ring, two of them not DGX
+  Sparks; n not stated). gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/main/docs/FIRST-BOOT.md)
+  measured "engines ready" at 84 s without the cache, 110 s on the boot that writes it, and 16 s after (one boot each).
 - **After the first boot:** a switch from GLM-5.3 into this recipe waited 35.9-36.8 s after `up -d` returned (two runs,
   the same boxes and image, cache written; SWITCHING.md).
 - **Off:** put a `#` in front of the `EXTRA_ENV=GR8_GEN_CACHE=...` line in `.env` and run `docker compose up -d` on
