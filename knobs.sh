@@ -3,13 +3,13 @@
 #             fabric address on the first and second ConnectX root, in PEERS order). Nothing is announced.
 #   MENTAT=1: find the other boxes through the host's mentat daemon (gr8's MENTAT=localhost) and announce the API in the
 #             mentat cluster, in group GROUP (gr8-ds41-4x by default).
-#   TUNE=speed (default): fast mode, the settings measured in README.md. FIRST-BOOT.md Q3's two switches and Q4's
-#             output head, which change the output; three prefill settings of gr8/docs/ENV.md (GR8_DS_ATTN_TC_MF=2,
-#             GR8_DS_ATTN_TC_TILE=1, GR8_DS_MHC_ROW_SHARD=1); GR8_DS_MHC_Y_MXFP8=1 (speed only, README.md); and, unless set,
-#             SESS=32 and CAP=327680. The image's
-#             engine is built with DS41_MX=48 (Dockerfile), so a step holds 48 rows.
-#   TUNE=context: fast mode's six switches, GR8_DS_CACHE_MIB=2048 and, unless set, SESS=16 and CAP=1048576
-#             (FIRST-BOOT.md Q2).
+#   TUNE=speed (default): fast mode with the release stack. FIRST-BOOT.md Q3's two switches and
+#             Q4's output head, which change the output; two prefill settings of gr8/docs/ENV.md (GR8_DS_ATTN_TC_MF=2,
+#             GR8_DS_ATTN_TC_TILE=1); the release stack ($release below); and,
+#             unless set, SESS=32 and CAP=327680. The image's engine is built with DS41_MX=48 (Dockerfile), so a step
+#             holds 48 rows.
+#   TUNE=context: FIRST-BOOT.md Q3 and Q4, GR8_DS_ATTN_TC_MF=2, GR8_DS_ATTN_TC_TILE=1, GR8_DS_MHC_ROW_SHARD=1,
+#             GR8_DS_CACHE_MIB=2048 and, unless set, SESS=16 and CAP=1048576 (FIRST-BOOT.md Q2). Not the release stack.
 #   TUNE=quality: the exact model, with gr8's launcher defaults and, unless set, SESS=5 and CAP=262144. EXACT=1, the
 #             older name, is refused with a pointer here.
 #   SESS above 5 adds GR8_DS_SESS_DRAFTS=1: each chat drafts fewer tokens as more chats write (FIRST-BOOT.md Q1), and
@@ -27,10 +27,16 @@ case "${MENTAT:-0}" in
 esac
 ds_words="GR8_DS_ENGRAM=1 GR8_DS_ENGRAM_PREFIX=${ENGRAM_PREFIX:?}"
 fast="GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1"
-fast="$fast GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1"
+fast="$fast GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1"
+# The release stack (TUNE=speed only). It turns the mHC row split off
+# (GR8_DS_MHC_ROW_SHARD=0, GR8_DS_MHC_Y_MXFP8=0), which TUNE=context keeps on.
+release="GR8_DS_PF_V2=1 GR8_DS_PF_LANES=1 GR8_DS_PF_TAIL=128 GR8_DS_SH_TC=1 GR8_DS_MHC_ROW_SHARD=0 GR8_DS_MHC_Y_MXFP8=0"
+release="$release GR8_DS_PREFILL_W=8192 GR8_DS_PF_V2_RS_BLOCKS=48 GR8_DS_PF_V2_GATE_RO=1 GR8_DS_PF_V2_PACK_BLOCKS=48"
+release="$release GR8_DS_PF_V2_STRIPE_MIN=1048576 GR8_DS_PF_V2_ATTN_PIPE=1"
+release="$release GR8_DS_ENGRAM_IO_THREADS=64 GR8_DS_ENGRAM_COL_SHARD=1 GR8_DS_ENGRAM_IO_URING=128"
 case "${TUNE:-speed}" in
-  speed) ds_words="$ds_words $fast GR8_DS_MHC_Y_MXFP8=1"; SESS=${SESS:-32} CAP=${CAP:-327680} ;;
-  context) ds_words="$ds_words $fast GR8_DS_CACHE_MIB=2048"; SESS=${SESS:-16} CAP=${CAP:-1048576} ;;
+  speed) ds_words="$ds_words $fast $release"; SESS=${SESS:-32} CAP=${CAP:-327680} ;;
+  context) ds_words="$ds_words $fast GR8_DS_MHC_ROW_SHARD=1 GR8_DS_CACHE_MIB=2048"; SESS=${SESS:-16} CAP=${CAP:-1048576} ;;
   quality) SESS=${SESS:-5} CAP=${CAP:-262144} ;;
   *) echo "TUNE=$TUNE: want speed (fast mode, the default), context (one chat up to 1M tokens) or quality (the exact model)" >&2; exit 2 ;;
 esac
@@ -41,4 +47,4 @@ case "$SESS" in
   *) ds_words="$ds_words GR8_DS_SESS_DRAFTS=1" ;;
 esac
 export EXTRA_ENV="$ds_words${EXTRA_ENV:+ $EXTRA_ENV}"
-unset ds_words fast n
+unset ds_words fast release n

@@ -49,7 +49,7 @@ MTU 9000, skip this step and put those addresses in `IPS` and `IPS2`.
 
 Four boxes cabled in a ring without a switch also work, with `SHAPE=ring` and without `IPS` and `IPS2`. Cable each
 box's f0 port to the next box's f1 port, and list `PEERS` in that cable order
-([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/docs/DEPLOY.md#how-the-boxes-find-each-other)).
+([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/DEPLOY.md#how-the-boxes-find-each-other)).
 
 With [`mentat`](https://github.com/kindlingai/mentat) running on each box, the recipe finds the other boxes and their
 ConnectX addresses by itself. On each box:
@@ -166,7 +166,7 @@ Set these in `.env` next to `compose.yaml` (see `.env.example`), or with `docker
 | `RELEASE` | a fixed commit | The release to fetch (`https://huggingface.co/<org>/<repo>@<commit>`). The fetch replaces only the files that differ. |
 | `EXTRA_ENV` | none | Engine settings as `NAME=value` pairs separated by spaces (`EXTRA_ENV="A=1 B=2"`). They come after the recipe's own. |
 
-[gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/KNOBS.md) lists the
+[gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/KNOBS.md) lists the
 other `gr8` options, which you can also set in `.env`. Some engine settings for `EXTRA_ENV`:
 
 - `GR8_DS_PF_LANES=1` frees about 5 GiB of host memory per Spark, and reads prompts more slowly.
