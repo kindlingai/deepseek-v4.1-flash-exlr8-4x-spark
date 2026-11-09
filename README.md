@@ -10,6 +10,39 @@ _**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg
 
 ![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
 
+## Results
+
+This image (`{{IMAGE_TAG}}`, gr8 [`{{GR8_SHA7}}`](https://github.com/kindlingai/gr8/commit/{{GR8_SHA}})), in fast mode
+(`TUNE=speed`, the default), on four DGX Sparks (GB10, 128 GB each) {{TOPOLOGY: on one 200G switch | in a ring}}, on
+{{DATE}}. Every speed is in tokens per second (tok/s).
+
+| | tok/s |
+|---|---|
+| prefill: 32K / 128K prompt | {{PF_32K}} / {{PF_128K}} |
+| decode, one stream: {{SHORT_PROMPT}}-token / {{LONG_PROMPT}}-token prompt | {{DEC1_SHORT}} / {{DEC1_LONG}} |
+| total decode: 4 / 8 / 16 / 32 streams ({{CONC_PROMPT}}-token prompts) | {{AGG_4}} / {{AGG_8}} / {{AGG_16}} / {{AGG_32}} |
+
+| | |
+|---|---|
+| first token after a 32K / 128K prompt | {{TTFT_32K}} s / {{TTFT_128K}} s |
+| longest chat (prompt and reply) | {{MAX_CTX}} tokens |
+| ready after `up -d` (gen cache written) | {{BOOT_S}} s |
+| switch from GLM-5.3 to this recipe | {{SWITCH_S}} s |
+
+Fast mode's replies are not bit-identical to the exact model's (`TUNE=quality`). On the 75-item quality check of gr8's
+[FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/{{GR8_SHA}}/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
+this build scored {{QEVAL}} of 75. Other hardware and other box counts were not measured.
+
+### How we measure
+
+- The image above, started as this README shows, with no other settings unless the row says so.
+- No tracing or per-stage timing on the measured requests.
+- A number that compares two settings comes from paired runs: both settings on the same boxes, each on a fresh boot,
+  in both orders.
+- Every speed is tok/s. Every decode number gives its prompt length.
+- Each number is {{STAT: the mean | the range}} of {{N}} runs. The raw runs and the method are in gr8's
+  [DEEPSEEK.md](https://github.com/kindlingai/gr8/blob/{{GR8_SHA}}/docs/DEEPSEEK.md#how-we-measure).
+
 ## What you need
 
 - Four Sparks on a 200G switch, or cabled in a ring (see Clustering).
@@ -84,13 +117,19 @@ use yours.
 ```bash
 docker run -d --name ds41-4x-spark --gpus all --network host --pid host --device /dev/infiniband \
   --ulimit memlock=-1 --ulimit core=0 --cap-drop ALL --cap-add IPC_LOCK \
-  --security-opt no-new-privileges --read-only --tmpfs /tmp:size=1g,mode=1777 --init --oom-score-adj 1000 \
+  --security-opt no-new-privileges --security-opt seccomp=<dir>/seccomp-iouring.json \
+  --read-only --tmpfs /tmp:size=1g,mode=1777 --init --oom-score-adj 1000 \
   -e PEERS=<head>,<box2>,<box3>,<box4> \
   -e IPS=10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4 -e IPS2=10.0.1.1,10.0.1.2,10.0.1.3,10.0.1.4 \
   -v ds41-release:/var/lib/gr8/release -v ds41-home:/var/lib/gr8/home \
   ghcr.io/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark:latest
 docker logs -f ds41-4x-spark     # on the head: ready at "serving: http://..."
 ```
+
+`<dir>/seccomp-iouring.json` is the profile that `install-seccomp.py` writes (see "The seccomp profile for io_uring"
+below): clone this repo on each box and run the script once. Without that option, Docker's default profile blocks
+io_uring and Engram reads its rows with a thread pool instead: the output is the same, and the numbers in "Results"
+were measured with the profile.
 
 With `mentat` running, replace the `PEERS`, `IPS` and `IPS2` settings with `-e MENTAT=1`. The head is then the box
 with the lowest address. A container stops at once, and says why, if the release on its box is not whole. The boxes
@@ -139,6 +178,11 @@ again until the fetch is done.
 
 `docker compose up -d --build` builds the image on the box instead.
 
+### The seccomp profile for io_uring
+
+Docker's default seccomp profile blocks io_uring, which Engram uses to read its table from disk. `install-seccomp.py`
+makes a profile that allows it, for this recipe's Compose service only.
+
 `install-seccomp.py` needs Python 3, curl and access to Docker. It detects the Docker **server** version and fetches
 that version's default profile from the official Moby `docker-v<version>` tag. It adds only `io_uring_setup`,
 `io_uring_enter` and `io_uring_register`, writes `seccomp-iouring.json` next to `compose.yaml`, and updates only
@@ -148,7 +192,19 @@ starting Compose and again after a Docker upgrade. It does not start or restart 
 If the version lookup or fetch fails, it warns and selects Docker's `builtin` profile (not `unconfined`), so Compose
 can still start without the generated profile. An io_uring-capable Engram build can then use its pread fallback.
 An old generated file is not selected after a failed update. The override applies only to this recipe's service;
-it does not alter Docker's daemon settings or other containers. `docker run` commands above keep Docker's default.
+it does not alter Docker's daemon settings or other containers. For `docker run`, pass the file with
+`--security-opt seccomp=...`, as the Quickstart shows.
+
+## Web console
+
+gr8 has a small web console ([gr8/tools/console](https://github.com/kindlingai/gr8/tree/{{GR8_SHA}}/tools/console)):
+one page with the model's stats, the boxes, the head log, three presets, and a switch between models. It runs apart
+from the engine, so it stays up while a model restarts, and it sends no requests to the model.
+
+It is read-only until you set `allow_control` in its config. With control on, it can change the recipe's `.env` on
+each box and restart the model: it keeps a backup of each file and has a "Restore previous settings" action. It has no
+login: keep it on `localhost` and reach it through an SSH tunnel. Its
+[README](https://github.com/kindlingai/gr8/blob/{{GR8_SHA}}/tools/console/README.md) has the setup.
 
 ## Knobs
 
@@ -169,11 +225,36 @@ Set these in `.env` next to `compose.yaml` (see `.env.example`), or with `docker
 [gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/KNOBS.md) lists the
 other `gr8` options, which you can also set in `.env`. Some engine settings for `EXTRA_ENV`:
 
-- `GR8_DS_PF_LANES=1` frees about 5 GiB of host memory per Spark, and reads prompts more slowly.
 - `GR8_DS_CACHE_MIB` sets the in-memory prefix cache on each box: 4,096 MiB by default, 2,048 with `TUNE=context`. A
   restart empties it.
-- `GR8_DS_MHC_Y_MXFP8=1` needs `GR8_DS_MHC_ROW_SHARD=1`. `TUNE=speed` sets both, so to turn them off, set both:
-  `EXTRA_ENV="GR8_DS_MHC_ROW_SHARD=0 GR8_DS_MHC_Y_MXFP8=0"`.
+- A setting you put in `EXTRA_ENV` replaces the recipe's value for it.
+
+### What `TUNE=speed` sets
+
+`TUNE=speed` turns on these engine settings, one line each. A setting from the list in `EXTRA_ENV` replaces it. The
+rows marked "output" change the reply; the others give the same reply faster or with less memory.
+[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/{{GR8_SHA}}/docs/ENV.md) has the full text of each.
+
+| setting | what it does |
+|---|---|
+| `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1` | output: accepts a drafted token by a relaxed rule (top-p 0.9, ratio 0.1), not only an exact match. |
+| `GR8_DS_MOE_TOPK_DECODE=4` | output: a decode step takes 4 routed experts, fewer than prefill takes. |
+| `GR8_DS41_HEAD_MX=1` | output: the decode output head in MXFP8, so it reads a little over half the bytes. |
+| `GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` | the grid order and the tile of the tensor-core GEMM; the same output bits. |
+| `GR8_DS_PF_V2=1` | the v2 prefill path for layers 0 to 20: each box keeps its own rows, with its own fabric and stream. |
+| `GR8_DS_PF_LANES=1` | one prefill lane (v2 needs one). |
+| `GR8_DS_PF_TAIL=128` | the late layers run only the last 128 rows of each prefill chunk (v2 needs 128). |
+| `GR8_DS_PREFILL_W=8192` | prefill chunks of 8,192 rows. |
+| `GR8_DS_SH_TC=1` | output: the shared expert of prefill runs on the tensor cores with MXFP8 input. |
+| `GR8_DS_MHC_ROW_SHARD=0`, `GR8_DS_MHC_Y_MXFP8=0` | the mHC row split off. v2 with 8,192-row chunks needs it off; it applies to prefill only. |
+| `GR8_DS_PF_V2_RS_BLOCKS=48` | v2 reduce-scatter with 48 blocks (gr8's default). |
+| `GR8_DS_PF_V2_PACK_BLOCKS=48` | v2 wire pack and unpack with 48 blocks. |
+| `GR8_DS_PF_V2_GATE_RO=1` | v2 expert gate reads its weights once per tile. |
+| `GR8_DS_PF_V2_STRIPE_MIN=1048576` | v2 splits a message of 1 MiB or more across two fabric rails (`IPS` and `IPS2`). |
+| `GR8_DS_PF_V2_ATTN_PIPE=1` | v2 attention loads the next block of keys while it works on the current one. |
+| `GR8_DS_ENGRAM_IO_URING=128` | Engram reads its rows with io_uring (needs the seccomp profile). |
+| `GR8_DS_ENGRAM_IO_THREADS=64` | Engram's thread pool when io_uring is off. |
+| `GR8_DS_ENGRAM_COL_SHARD=1` | each box holds a quarter of Engram's columns (gr8's default). |
 
 ## Pick what to prioritize
 
@@ -181,7 +262,7 @@ other `gr8` options, which you can also set in `.env`. Some engine settings for 
 
 | `TUNE` | what you get |
 |---|---|
-| `speed` (default) | Fast mode: faster, but replies are not bit-identical to the exact model's. 32 chats at once, each up to 327,670 tokens. |
+| `speed` (default) | Fast mode, the settings in "Results": faster, but replies are not bit-identical to the exact model's. 32 chats at once, each up to 327,670 tokens. |
 | `context` | Fast mode with one chat of up to 1,048,566 tokens, 16 chats at once. |
 | `quality` | The exact model's output. 5 chats at once, each up to 262,134 tokens. |
 
