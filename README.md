@@ -258,14 +258,14 @@ other `gr8` options, which you can also set in `.env`. Some engine settings for 
 
 `TUNE=speed` turns on these engine settings, one line each. A setting from the list in `EXTRA_ENV` replaces it. The
 rows marked "output" change the reply; the others give the same reply faster or with less memory.
-[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/ENV.md) has the full text of each.
+[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/43cad388ec8b7026b4feed2190fc5ce5a90c0c6d/docs/ENV.md) has the full text of each.
 
 | setting | what it does |
 |---|---|
 | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1` | output: accepts a drafted token by a relaxed rule (top-p 0.9, ratio 0.1), not only an exact match. |
 | `GR8_DS_MOE_TOPK_DECODE=4` | output: a decode step takes 4 routed experts, fewer than prefill takes. |
 | `GR8_DS41_HEAD_MX=1` | output: the decode output head in MXFP8, so it reads a little over half the bytes. |
-| `GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` | the grid order and the tile of the tensor-core GEMM; the same output bits. |
+| `GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=2` | the grid order and the tile of the tensor-core GEMM (tile 2: persistent blocks); the same output bits. `TUNE=context` keeps tile 1. |
 | `GR8_DS_PF_V2=1` | the v2 prefill path for layers 0 to 20: each box keeps its own rows, with its own fabric and stream. |
 | `GR8_DS_PF_LANES=1` | one prefill lane (v2 needs one). |
 | `GR8_DS_PF_TAIL=128` | the late layers run only the last 128 rows of each prefill chunk (v2 needs 128). |
@@ -280,6 +280,8 @@ rows marked "output" change the reply; the others give the same reply faster or 
 | `GR8_DS_ENGRAM_IO_URING=128` | Engram reads its rows with io_uring (needs the seccomp profile). |
 | `GR8_DS_ENGRAM_IO_THREADS=64` | Engram's thread pool when io_uring is off. |
 | `GR8_DS_ENGRAM_COL_SHARD=1` | each box holds a quarter of Engram's columns (gr8's default). |
+| `GR8_S2_ADMIT_HOLD=1` | a burst of queued chats is admitted at one step boundary instead of one per notice. |
+| `GR8_S2_TAIL_FIRST=1` | a chat with only its prompt tail left is served before any prefill, so a burst of short prompts gets first tokens sooner. |
 
 ## Pick what to prioritize
 
