@@ -3,9 +3,9 @@
 #             fabric address on the first and second ConnectX root, in PEERS order). Nothing is announced.
 #   MENTAT=1: find the other boxes through the host's mentat daemon (gr8's MENTAT=localhost) and announce the API in the
 #             mentat cluster, in group GROUP (gr8-ds41-4x by default).
-#   TUNE=speed (default): fast mode, the settings measured in README.md "Results". FIRST-BOOT.md Q3's two switches and
+#   TUNE=speed (default): fast mode with the release stack. FIRST-BOOT.md Q3's two switches and
 #             Q4's output head, which change the output; two prefill settings of gr8/docs/ENV.md (GR8_DS_ATTN_TC_MF=2,
-#             GR8_DS_ATTN_TC_TILE=1); the release stack ($release below, one line each in README.md "Knobs"); and,
+#             GR8_DS_ATTN_TC_TILE=1); the release stack ($release below); and,
 #             unless set, SESS=32 and CAP=327680. The image's engine is built with DS41_MX=48 (Dockerfile), so a step
 #             holds 48 rows.
 #   TUNE=context: FIRST-BOOT.md Q3 and Q4, GR8_DS_ATTN_TC_MF=2, GR8_DS_ATTN_TC_TILE=1, GR8_DS_MHC_ROW_SHARD=1,
@@ -28,7 +28,7 @@ esac
 ds_words="GR8_DS_ENGRAM=1 GR8_DS_ENGRAM_PREFIX=${ENGRAM_PREFIX:?}"
 fast="GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1"
 fast="$fast GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1"
-# The release stack, measured in README.md "Results" (TUNE=speed only). It turns the mHC row split off
+# The release stack (TUNE=speed only). It turns the mHC row split off
 # (GR8_DS_MHC_ROW_SHARD=0, GR8_DS_MHC_Y_MXFP8=0), which TUNE=context keeps on.
 release="GR8_DS_PF_V2=1 GR8_DS_PF_LANES=1 GR8_DS_PF_TAIL=128 GR8_DS_SH_TC=1 GR8_DS_MHC_ROW_SHARD=0 GR8_DS_MHC_Y_MXFP8=0"
 release="$release GR8_DS_PREFILL_W=8192 GR8_DS_PF_V2_RS_BLOCKS=48 GR8_DS_PF_V2_GATE_RO=1 GR8_DS_PF_V2_PACK_BLOCKS=48"
