@@ -61,7 +61,7 @@ boxes that day. Other hardware and other box counts were not measured.
 ### How we measure
 
 - gr8's own benchmark (`bench/bench.py`) against the running server, with this recipe's settings. For the set A rows
-  we used `bench.py` with the prompt-length output and the closed-loop mode of gr8 PR ⟨BENCHPR⟩.
+  we used `bench.py` with the prompt-length output and the closed-loop mode of gr8 PR [#471](https://github.com/kindlingai/gr8/pull/471).
 - The set A rows used this recipe's published image `sha-7c2088a` (gr8 `43cad38`) on one boot, between two boots of
   the release 1 image `sha-ad3efdf` on the same boxes. No first-token, prefill, one-stream, many-stream or closed-loop
   number of the new image was more than 1% worse than the mean of the two release 1 boots. The "decode after it"
