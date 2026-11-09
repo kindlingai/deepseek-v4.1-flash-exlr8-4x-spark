@@ -225,9 +225,9 @@ If a step fails for a reason not listed here, ask on the KindlingAI Discord (the
 
 ## 6. Not measured yet: tell the person
 
-- README.md "Results": the speed rows were measured on 2026-11-08 with gr8 `0015fd0` in this recipe's settings, on an
-  image with that engine but not yet this recipe's published image; the boot and switch rows are from the published image
-  `sha-ad3efdf` on 2026-11-09. The KV cache is always fp8, and the image's engine is built with `DS41_MX=48`.
+- README.md "Results": the set A rows were measured on 2026-11-09 on this recipe's published image `sha-7c2088a`
+  (gr8 `43cad38`). Rows marked "release 1 settings" (the set B many-stream rows, the first boot from a cold disk, the
+  switch rows) are from gr8 `0015fd0` and the settings before this release; they were not measured again. The KV cache is always fp8, and the image's engine is built with `DS41_MX=48`.
 - `TUNE=context` was measured on the image `sha-15b7eec` in one boot on 2026-11-07: a cold 1,031,542-token prompt read in 388.7 s (2,650 tok/s), the same prompt again in 1.19 s from
   the prefix cache, replies after it at 91.9 tok/s, and 8.7-9.4 GiB free a box just after ready. Recall and output
   quality at 1M, and three distinct cold 1M prompts at once, are not measured on that image.

@@ -2,7 +2,7 @@
   "version": 1,
   "title": "DeepSeek-V4.1-Flash",
   "variant": "exlr8 native, fp8 KV, fast mode",
-  "summary": "DeepSeek-V4.1-Flash on four GB10 boxes with gr8 at TP=4: the exlr8 native release, fp8 KV, Engram, 32 chats at once, fast mode (not exact), measured 2026-11-08 with gr8 0015fd0.",
+  "summary": "DeepSeek-V4.1-Flash on four GB10 boxes with gr8 at TP=4: the exlr8 native release, fp8 KV, Engram, 32 chats at once, fast mode (not exact), measured 2026-11-09 on the image sha-7c2088a (gr8 43cad38).",
   "model": "kindlingai/deepseek-v4.1-flash-exlr8-native",
   "hardware": "DGX Spark (GB10)",
   "stack": [
@@ -18,36 +18,36 @@
       "label": "TP=4",
       "nodes": 4,
       "decode": {
-        "code": 144.3,
-        "prose": 84.7,
-        "structured": 160.7
+        "code": 143.5,
+        "prose": 84.6,
+        "structured": 159.9
       },
       "prefill": [
         {
           "context": 32768,
-          "tps": 7950
+          "tps": 7835
         },
         {
           "context": 131072,
-          "tps": 7887
+          "tps": 7940
         },
         {
           "context": 262144,
-          "tps": 7548
+          "tps": 7590
         }
       ],
       "concurrency": [
         {
           "streams": 8,
-          "aggregate_tps": 200.3
+          "aggregate_tps": 217.4
         },
         {
           "streams": 16,
-          "aggregate_tps": 221.3
+          "aggregate_tps": 249.2
         },
         {
           "streams": 32,
-          "aggregate_tps": 226.4
+          "aggregate_tps": 242.8
         }
       ],
       "max_context": 327670,
