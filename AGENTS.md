@@ -169,10 +169,10 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 ## 4. Check that it serves
 
 - On the head, `docker logs -f ds41-4x-spark` (compose: `docker compose logs -f`) prints `serving: http://...` when the
-  cluster serves. In our run on 2026-11-09 the first boot of the image `sha-ad3efdf` printed it 212.7 s after the four
-  containers started, with the gen cache written; a switch from GLM-5.3 after that was ready in 37-39 s. The first
-  boot of a new cache key with the gen cache on (a new image, or a `TUNE` change between `quality` and `speed` or
-  `context`) writes the cache and takes longer (README.md, "The gen cache: disk, first boot, off", has the measured
+  cluster serves. In our run on 2026-11-09 the first boot (cold disk) of the image `sha-ad3efdf` printed it 212.7 s
+  after the four containers started, with the gen cache written; a switch from GLM-5.3 after that was ready in 37-39 s.
+  The first boot of a new cache key with the gen cache on (a new image, or a `TUNE` change between `quality` and `speed`
+  or `context`) writes the cache and takes longer (README.md, "The gen cache: disk, first boot, off", has the measured
   times).
 - On every box, `docker exec ds41-4x-spark gr8 ds41 health` exits 0 when that box serves. With compose,
   `docker compose ps` shows the container as `healthy` once this check passes.

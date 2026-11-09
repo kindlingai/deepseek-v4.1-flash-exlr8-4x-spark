@@ -53,7 +53,8 @@ this build scored 73 of 75 on each of two boots, and the published image `sha-ad
 
 - gr8's own benchmark (`bench/bench.py`) against the running server, with this recipe's settings. The speed rows used
   an image with the engine built from `0015fd0`. The boot and switch rows used this recipe's published image
-  `sha-ad3efdf` on 2026-11-09 (set B); its speeds on set B were within 2.1% of the same build's.
+  `sha-ad3efdf` on 2026-11-09 (set B); its 32K prefill and its 8, 16 and 32-stream totals on set B were within 2.1%
+  of the same build's on set B.
 - No tracing or per-stage timing on the measured requests.
 - Every speed is tok/s. Every one-stream decode number gives its prompt length.
 - A single number is the mean of the runs in its row; a range is the lowest and highest series. Many-stream totals:
