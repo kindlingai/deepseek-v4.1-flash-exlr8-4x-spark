@@ -15,8 +15,9 @@ DeepSeek-V4.1-Flash (DeepSeek's release [DeepSeek-V4.1-Flash-1017](https://huggi
 gr8 [`43cad38`](https://github.com/kindlingai/gr8/commit/43cad388ec8b7026b4feed2190fc5ce5a90c0c6d) in fast mode
 (`TUNE=speed`, the default) with this recipe's settings, from the published image `sha-7c2088a`
 (digest `sha256:452d5fcc3de3a22240ad7b879d2985f36e38931aa6eee6c9cc425322a3a90acd`), on four DGX Sparks (GB10, 128 GB
-each) cabled in a ring (set A), on 2026-11-09. Rows marked "release 1 settings" are older numbers: gr8 `0015fd0` and
-the settings before this release, measured on 2026-11-08 or 2026-11-09 on a second set of four GB10 boxes (set B).
+each) cabled in a ring (set A), on 2026-11-09. Rows and columns marked "release 1 settings" are older numbers: gr8
+`0015fd0` and the settings before this release. The decode right after each prefill is from set A on 2026-11-08; the
+many-stream, boot and switch rows are from a second set of four GB10 boxes (set B) on 2026-11-08 and 2026-11-09.
 Every speed is in tokens per second (tok/s).
 
 Prefill, cold prompt (set A):
