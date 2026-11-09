@@ -205,8 +205,8 @@ four boxes, one model at a time, two settings make the switch fast:
   to ready for DeepSeek's first start, measured on 2026-11-07 on four GB10 boxes in a ring (two DGX Sparks and two GB10
   boxes from another maker, with PCIe Gen4 NVMe) with this recipe's image `sha-50a8773`. It does not state n for that
   figure. gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/main/docs/FIRST-BOOT.md) gives, for
-  DeepSeek-V4.1-Flash at TP=4, 79.6 GB a rank: 84 s without the cache, 110 s on the boot that writes it, 16 s after.
-  That line states neither hardware nor n.
+  DeepSeek-V4.1-Flash at TP=4, 79.6 GB a rank: "engines ready" 84 s without the cache, 110 s on the boot that writes it,
+  16 s after. That is one boot each (gr8 PR #382, 3 boots with the same options); it states no hardware beyond TP=4.
 - **After the first boot:** a switch from GLM-5.3 into this recipe waited 35.9-36.8 s after `up -d` returned (two runs,
   the same boxes and image, cache written; SWITCHING.md).
 - **Off:** put a `#` in front of the `EXTRA_ENV=GR8_GEN_CACHE=...` line in `.env` and run `docker compose up -d` on
