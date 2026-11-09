@@ -40,16 +40,20 @@ Many streams at once (set B, short mixed prompts, up to 512 tokens out per strea
 | | |
 |---|---|
 | longest prompt measured | 262,219 tokens (`CAP` allows 327,680) |
-| first boot of the image `sha-ad3efdf` on four boxes, container start to `serving:` (2026-11-09) | 212.7 s |
+| first boot, cold disk: the image `sha-ad3efdf` on four boxes, container start to `serving:` (gen cache written) | 212.7 s |
+| switch from GLM-5.3 to this recipe, gen cache on disk, to health ready (`./gr8 switch`, two runs) | 37.1 s / 39.2 s |
+| switch from this recipe back to GLM-5.3, to health ready (two runs) | 76.0 s / 74.1 s |
 
 Fast mode's replies are not bit-identical to the exact model's (`TUNE=quality`). On the 75-item quality check of gr8's
 [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
-this build scored 73 of 75 on each of two boots. Other hardware and other box counts were not measured.
+this build scored 73 of 75 on each of two boots, and the published image `sha-ad3efdf` scored 73 of 75 on 2026-11-09
+(the same two items missed each time). Other hardware and other box counts were not measured.
 
 ### How we measure
 
 - gr8's own benchmark (`bench/bench.py`) against the running server, with this recipe's settings. The speed rows used
-  an image with the engine built from `0015fd0`; the boot row used this recipe's published image.
+  an image with the engine built from `0015fd0`. The boot and switch rows used this recipe's published image
+  `sha-ad3efdf` on 2026-11-09 (set B); its speeds on set B were within 2.1% of the same build's.
 - No tracing or per-stage timing on the measured requests.
 - Every speed is tok/s. Every one-stream decode number gives its prompt length.
 - A single number is the mean of the runs in its row; a range is the lowest and highest series. Many-stream totals:
@@ -152,7 +156,8 @@ were measured with the profile.
 
 With `mentat` running, replace the `PEERS`, `IPS` and `IPS2` settings with `-e MENTAT=1`. The head is then the box
 with the lowest address. A container stops at once, and says why, if the release on its box is not whole. The boxes
-wait for each other for 10 minutes, so start all four within that time. Expect about 2 minutes to ready.
+wait for each other for 10 minutes, so start all four within that time. The first boot of a new image took 212.7 s
+in our run; later boots read the gen cache and are faster.
 
 The head serves an OpenAI-compatible API on port 8100. The model's name is `deepseek-v4.1-flash`:
 
@@ -308,8 +313,8 @@ four boxes, one model at a time, two settings make the switch fast:
   ready for DeepSeek's first start (2026-11-07, image `sha-50a8773`, four GB10 boxes in a ring, two of them not DGX
   Sparks; n not stated). gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md)
   measured "engines ready" at 84 s without the cache, 110 s on the boot that writes it, and 16 s after (one boot each).
-- **After the first boot:** a switch from GLM-5.3 into this recipe waited 35.9-36.8 s after `up -d` returned (two runs,
-  the same boxes and image, cache written; SWITCHING.md).
+- **After the first boot:** a switch from GLM-5.3 into this recipe took 37.1 s and 39.2 s to health ready (two runs,
+  image `sha-ad3efdf`, cache written, 2026-11-09).
 - **Off:** put a `#` in front of the `EXTRA_ENV=GR8_GEN_CACHE=...` line in `.env` and run `docker compose up -d` on
   every box. The boot then computes the tensors every time. To free the disk, delete the `gen-cache` directory in the
   home volume.

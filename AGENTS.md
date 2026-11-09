@@ -169,7 +169,8 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 ## 4. Check that it serves
 
 - On the head, `docker logs -f ds41-4x-spark` (compose: `docker compose logs -f`) prints `serving: http://...` when the
-  cluster serves. Expect about {{BOOT_S}} s: in our run on {{DATE}} it printed this {{BOOT_S}} s after the four containers started. The first
+  cluster serves. In our run on 2026-11-09 the first boot of the image `sha-ad3efdf` printed it 212.7 s after the four
+  containers started, with the gen cache written; a switch from GLM-5.3 after that was ready in 37-39 s. The first
   boot of a new cache key with the gen cache on (a new image, or a `TUNE` change between `quality` and `speed` or
   `context`) writes the cache and takes longer (README.md, "The gen cache: disk, first boot, off", has the measured
   times).
@@ -225,8 +226,8 @@ If a step fails for a reason not listed here, ask on the KindlingAI Discord (the
 ## 6. Not measured yet: tell the person
 
 - README.md "Results": the speed rows were measured on 2026-11-08 with gr8 `0015fd0` in this recipe's settings, on an
-  image with that engine but not yet this recipe's published image; the boot row is from the published image
-  `{{IMAGE_TAG}}` on {{DATE}}. The KV cache is always fp8, and the image's engine is built with `DS41_MX=48`.
+  image with that engine but not yet this recipe's published image; the boot and switch rows are from the published image
+  `sha-ad3efdf` on 2026-11-09. The KV cache is always fp8, and the image's engine is built with `DS41_MX=48`.
 - `TUNE=context` was measured on the image `sha-15b7eec` in one boot on 2026-11-07: a cold 1,031,542-token prompt read in 388.7 s (2,650 tok/s), the same prompt again in 1.19 s from
   the prefix cache, replies after it at 91.9 tok/s, and 8.7-9.4 GiB free a box just after ready. Recall and output
   quality at 1M, and three distinct cold 1M prompts at once, are not measured on that image.
