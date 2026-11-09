@@ -51,10 +51,10 @@ this build scored 73 of 75 on each of two boots. Other hardware and other box co
 - gr8's own benchmark (`bench/bench.py`) against the running server, with this recipe's settings. The speed rows used
   an image with the engine built from `0015fd0`; the boot row used this recipe's published image.
 - No tracing or per-stage timing on the measured requests.
-- Every speed is tok/s. Every decode number gives its prompt length.
+- Every speed is tok/s. Every one-stream decode number gives its prompt length.
 - A single number is the mean of the runs in its row; a range is the lowest and highest series. Many-stream totals:
   two series of two batches per level, the total of each series' tokens over its decode time, then the mean of the
-  two series. The raw runs and the method are in gr8's
+  two series. The method is in gr8's
   [DEEPSEEK.md](https://github.com/kindlingai/gr8/blob/main/docs/DEEPSEEK.md#how-we-measure).
 
 ## What you need
