@@ -4,11 +4,63 @@ If you are an agent booting this for someone, read [AGENTS.md](AGENTS.md) first,
 
 _**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg/8EAvYPV2rE**_
 
-[DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017) on four DGX Sparks (GB10,
+DeepSeek-V4.1-Flash (DeepSeek's release [DeepSeek-V4.1-Flash-1017](https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017)) on four DGX Sparks (GB10,
 128 GB each) at TP=4, served by [gr8](https://github.com/kindlingai/gr8) from
 [kindlingai/deepseek-v4.1-flash-exlr8-native](https://huggingface.co/kindlingai/deepseek-v4.1-flash-exlr8-native).
 
 ![DeepSeek-V4.1-Flash on four GB10s in fast mode: decode, prefill and concurrency](docs/card.png)
+
+## Results
+
+gr8 [`0015fd0`](https://github.com/kindlingai/gr8/commit/0015fd04512ebc38e369475a1ce7dee76d445d77) in fast mode
+(`TUNE=speed`, the default) with this recipe's settings, on two sets of four DGX Sparks (GB10, 128 GB each), each set
+cabled in a ring, on 2026-11-08: set A for prefill and one-stream decode, set B for many streams. Every speed is in
+tokens per second (tok/s).
+
+Prefill, cold prompt (set A):
+
+| prompt | runs | first token | prefill tok/s | decode tok/s after it, same request |
+|---|---|---|---|---|
+| 32K tokens | 16 | 4.12 s | 7,950 | 103.5 |
+| 128K tokens | 8 | 16.6 s | 7,887 | 98.2 |
+
+One-stream decode on short prompts (64-72 tokens, up to 512 tokens out; set A, two series of 6 runs each):
+
+| work | code | prose | structured | counting |
+|---|---|---|---|---|
+| tok/s | 143.5-145.0 | 83.4-86.0 | 160.4-160.9 | 162.1-162.4 |
+
+Many streams at once (set B, short mixed prompts, up to 512 tokens out per stream):
+
+| streams | 8 | 16 | 32 |
+|---|---|---|---|
+| total decode tok/s | 200.3 | 221.3 | 226.4 |
+| first token, median | 2.5-2.7 s | 6.2-6.4 s | 14.2-14.6 s |
+
+| | |
+|---|---|
+| longest prompt measured | 262,219 tokens (`CAP` allows 327,680) |
+| first boot, cold disk: the image `sha-ad3efdf` on four boxes, container start to `serving:` (gen cache written) | 212.7 s |
+| switch from GLM-5.3 to this recipe, gen cache on disk, to health ready (`./gr8 switch`, two runs) | 37.1 s / 39.2 s |
+| switch from this recipe back to GLM-5.3, to health ready (two runs) | 76.0 s / 74.1 s |
+
+Fast mode's replies are not bit-identical to the exact model's (`TUNE=quality`). On the 75-item quality check of gr8's
+[FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
+this build scored 73 of 75 on each of two boots, and the published image `sha-ad3efdf` scored 73 of 75 on 2026-11-09
+(the same two items missed each time). Other hardware and other box counts were not measured.
+
+### How we measure
+
+- gr8's own benchmark (`bench/bench.py`) against the running server, with this recipe's settings. The speed rows used
+  an image with the engine built from `0015fd0`. The boot and switch rows used this recipe's published image
+  `sha-ad3efdf` on 2026-11-09 (set B); its 32K prefill and its 8, 16 and 32-stream totals on set B were within 2.1%
+  of the same build's on set B.
+- No tracing or per-stage timing on the measured requests.
+- Every speed is tok/s. Every one-stream decode number gives its prompt length.
+- A single number is the mean of the runs in its row; a range is the lowest and highest series. Many-stream totals:
+  two series of two batches per level, the total of each series' tokens over its decode time, then the mean of the
+  two series. The method is in gr8's
+  [DEEPSEEK.md](https://github.com/kindlingai/gr8/blob/main/docs/DEEPSEEK.md#how-we-measure).
 
 ## What you need
 
@@ -43,6 +95,11 @@ network:
       addresses: [10.0.1.1/24]
       mtu: 9000
 ```
+
+The two port names above are the usual ones on a DGX Spark. `ip -br link` lists the names on your box. Two kinds of
+address are in play: the 10G LAN address (`PEERS`) is the box's normal network address, which you reach it by; the
+ConnectX addresses (`IPS`, `IPS2`) are on the 200G ports, one for each PCIe root. MTU 9000 needs a switch and cables that
+carry it.
 
 Then run `sudo netplan apply` on each box. If each box's ConnectX port already has an address on each PCIe root, with
 MTU 9000, skip this step and put those addresses in `IPS` and `IPS2`.
@@ -84,7 +141,8 @@ use yours.
 ```bash
 docker run -d --name ds41-4x-spark --gpus all --network host --pid host --device /dev/infiniband \
   --ulimit memlock=-1 --ulimit core=0 --cap-drop ALL --cap-add IPC_LOCK \
-  --security-opt no-new-privileges --read-only --tmpfs /tmp:size=1g,mode=1777 --init --oom-score-adj 1000 \
+  --security-opt no-new-privileges --security-opt seccomp=<dir>/seccomp-iouring.json \
+  --read-only --tmpfs /tmp:size=1g,mode=1777 --init --oom-score-adj 1000 \
   -e PEERS=<head>,<box2>,<box3>,<box4> \
   -e IPS=10.0.0.1,10.0.0.2,10.0.0.3,10.0.0.4 -e IPS2=10.0.1.1,10.0.1.2,10.0.1.3,10.0.1.4 \
   -v ds41-release:/var/lib/gr8/release -v ds41-home:/var/lib/gr8/home \
@@ -92,9 +150,15 @@ docker run -d --name ds41-4x-spark --gpus all --network host --pid host --device
 docker logs -f ds41-4x-spark     # on the head: ready at "serving: http://..."
 ```
 
+`<dir>/seccomp-iouring.json` is the profile that `install-seccomp.py` writes (see "The seccomp profile for io_uring"
+below): clone this repo on each box and run the script once. Without that option, Docker's default profile blocks
+io_uring and Engram reads its rows with a thread pool instead: the output is the same, and the numbers in "Results"
+were measured with the profile.
+
 With `mentat` running, replace the `PEERS`, `IPS` and `IPS2` settings with `-e MENTAT=1`. The head is then the box
 with the lowest address. A container stops at once, and says why, if the release on its box is not whole. The boxes
-wait for each other for 10 minutes, so start all four within that time. Expect about 2 minutes to ready.
+wait for each other for 10 minutes, so start all four within that time. The first boot of a new image took 212.7 s
+in our run; later boots read the gen cache and are faster.
 
 The head serves an OpenAI-compatible API on port 8100. The model's name is `deepseek-v4.1-flash`:
 
@@ -127,7 +191,7 @@ same `ds41-release` volume as the commands above. On every box:
 ```bash
 git clone --recurse-submodules https://github.com/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark
 cd deepseek-v4.1-flash-exlr8-4x-spark
-cp .env.example .env          # set PEERS, IPS and IPS2: the same file on every box
+cp .env.example .env          # uncomment and set PEERS, IPS and IPS2: the same file on every box
 docker compose run --rm gr8 fetch
 ./install-seccomp.py
 docker compose up -d
@@ -139,6 +203,11 @@ again until the fetch is done.
 
 `docker compose up -d --build` builds the image on the box instead.
 
+### The seccomp profile for io_uring
+
+Docker's default seccomp profile blocks io_uring, which Engram uses to read its table from disk. `install-seccomp.py`
+makes a profile that allows it, for this recipe's Compose service only.
+
 `install-seccomp.py` needs Python 3, curl and access to Docker. It detects the Docker **server** version and fetches
 that version's default profile from the official Moby `docker-v<version>` tag. It adds only `io_uring_setup`,
 `io_uring_enter` and `io_uring_register`, writes `seccomp-iouring.json` next to `compose.yaml`, and updates only
@@ -148,7 +217,19 @@ starting Compose and again after a Docker upgrade. It does not start or restart 
 If the version lookup or fetch fails, it warns and selects Docker's `builtin` profile (not `unconfined`), so Compose
 can still start without the generated profile. An io_uring-capable Engram build can then use its pread fallback.
 An old generated file is not selected after a failed update. The override applies only to this recipe's service;
-it does not alter Docker's daemon settings or other containers. `docker run` commands above keep Docker's default.
+it does not alter Docker's daemon settings or other containers. For `docker run`, pass the file with
+`--security-opt seccomp=...`, as the Quickstart shows.
+
+## Web console
+
+gr8 has a small web console ([gr8/tools/console](https://github.com/kindlingai/gr8/tree/0015fd04512ebc38e369475a1ce7dee76d445d77/tools/console)):
+one page with the model's stats, the boxes, the head log, three presets, and a switch between models. It runs apart
+from the engine, so it stays up while a model restarts, and it sends no requests to the model.
+
+It is read-only until you set `allow_control` in its config. With control on, it can change the recipe's `.env` on
+each box and restart the model: it keeps a backup of each file and has a "Restore previous settings" action. It has no
+login: keep it on `localhost` and reach it through an SSH tunnel. Its
+[README](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/tools/console/README.md) has the setup.
 
 ## Knobs
 
@@ -160,7 +241,7 @@ Set these in `.env` next to `compose.yaml` (see `.env.example`), or with `docker
 | `IPS`, `IPS2` | none | Each box's ConnectX address on PCIe root 1 and root 2, in `PEERS` order. |
 | `SHAPE` | unset (a switch) | `ring`: four boxes cabled in a ring, without `IPS` and `IPS2`. |
 | `TUNE` | `speed` | What to prioritize, see below. `EXACT=1`, the older name, is now `TUNE=quality`. |
-| `CAP` | `327680`; `1048576` with `TUNE=context`; `262144` with `TUNE=quality` | The longest chat in tokens, prompt and reply together. Every chat slot gets this much KV at boot. |
+| `CAP` | `327680`; `1048576` with `TUNE=context`; `262144` with `TUNE=quality` | The longest chat in tokens, prompt and reply together. Every chat slot gets this much KV at boot. A request holds at most `CAP` less 10 tokens (327,670 by default). |
 | `SESS` | `32`; `16` with `TUNE=context`; `5` with `TUNE=quality` | Chats at once, 1 to 32. A chat that arrives when every slot is busy waits. |
 | `MENTAT` | `0` | `1` finds the other boxes and the ConnectX addresses through the host's `mentat` daemon, and registers the API in group `GROUP` (`gr8-ds41-4x`). |
 | `RELEASE` | a fixed commit | The release to fetch (`https://huggingface.co/<org>/<repo>@<commit>`). The fetch replaces only the files that differ. |
@@ -169,11 +250,36 @@ Set these in `.env` next to `compose.yaml` (see `.env.example`), or with `docker
 [gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/KNOBS.md) lists the
 other `gr8` options, which you can also set in `.env`. Some engine settings for `EXTRA_ENV`:
 
-- `GR8_DS_PF_LANES=1` frees about 5 GiB of host memory per Spark, and reads prompts more slowly.
 - `GR8_DS_CACHE_MIB` sets the in-memory prefix cache on each box: 4,096 MiB by default, 2,048 with `TUNE=context`. A
   restart empties it.
-- `GR8_DS_MHC_Y_MXFP8=1` needs `GR8_DS_MHC_ROW_SHARD=1`. `TUNE=speed` sets both, so to turn them off, set both:
-  `EXTRA_ENV="GR8_DS_MHC_ROW_SHARD=0 GR8_DS_MHC_Y_MXFP8=0"`.
+- A setting you put in `EXTRA_ENV` replaces the recipe's value for it.
+
+### What `TUNE=speed` sets
+
+`TUNE=speed` turns on these engine settings, one line each. A setting from the list in `EXTRA_ENV` replaces it. The
+rows marked "output" change the reply; the others give the same reply faster or with less memory.
+[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/ENV.md) has the full text of each.
+
+| setting | what it does |
+|---|---|
+| `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1` | output: accepts a drafted token by a relaxed rule (top-p 0.9, ratio 0.1), not only an exact match. |
+| `GR8_DS_MOE_TOPK_DECODE=4` | output: a decode step takes 4 routed experts, fewer than prefill takes. |
+| `GR8_DS41_HEAD_MX=1` | output: the decode output head in MXFP8, so it reads a little over half the bytes. |
+| `GR8_DS_ATTN_TC_MF=2`, `GR8_DS_ATTN_TC_TILE=1` | the grid order and the tile of the tensor-core GEMM; the same output bits. |
+| `GR8_DS_PF_V2=1` | the v2 prefill path for layers 0 to 20: each box keeps its own rows, with its own fabric and stream. |
+| `GR8_DS_PF_LANES=1` | one prefill lane (v2 needs one). |
+| `GR8_DS_PF_TAIL=128` | the late layers run only the last 128 rows of each prefill chunk (v2 needs 128). |
+| `GR8_DS_PREFILL_W=8192` | prefill chunks of 8,192 rows. |
+| `GR8_DS_SH_TC=1` | output: the shared expert of prefill runs on the tensor cores with MXFP8 input. |
+| `GR8_DS_MHC_ROW_SHARD=0`, `GR8_DS_MHC_Y_MXFP8=0` | the mHC row split off. v2 with 8,192-row chunks needs it off; it applies to prefill only. |
+| `GR8_DS_PF_V2_RS_BLOCKS=48` | v2 reduce-scatter with 48 blocks (gr8's default). |
+| `GR8_DS_PF_V2_PACK_BLOCKS=48` | v2 wire pack and unpack with 48 blocks. |
+| `GR8_DS_PF_V2_GATE_RO=1` | v2 expert gate reads its weights once per tile. |
+| `GR8_DS_PF_V2_STRIPE_MIN=1048576` | v2 splits a message of 1 MiB or more across two fabric rails (`IPS` and `IPS2`). |
+| `GR8_DS_PF_V2_ATTN_PIPE=1` | v2 attention loads the next block of keys while it works on the current one. |
+| `GR8_DS_ENGRAM_IO_URING=128` | Engram reads its rows with io_uring (needs the seccomp profile). |
+| `GR8_DS_ENGRAM_IO_THREADS=64` | Engram's thread pool when io_uring is off. |
+| `GR8_DS_ENGRAM_COL_SHARD=1` | each box holds a quarter of Engram's columns (gr8's default). |
 
 ## Pick what to prioritize
 
@@ -181,13 +287,13 @@ other `gr8` options, which you can also set in `.env`. Some engine settings for 
 
 | `TUNE` | what you get |
 |---|---|
-| `speed` (default) | Fast mode: faster, but replies are not bit-identical to the exact model's. 32 chats at once, each up to 327,670 tokens. |
+| `speed` (default) | Fast mode, the settings in "Results": faster, but replies are not bit-identical to the exact model's. 32 chats at once, each up to 327,670 tokens. |
 | `context` | Fast mode with one chat of up to 1,048,566 tokens, 16 chats at once. |
 | `quality` | The exact model's output. 5 chats at once, each up to 262,134 tokens. |
 
 ## Switch between this and GLM-5.3 on the same four boxes
 
-To run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/main/docs/GLM-5.3.md) at TP=4 on the same
+To run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/GLM-5.3.md) at TP=4 on the same
 four boxes, one model at a time, two settings make the switch fast:
 
 - `GR8_GEN_CACHE` in both models' `EXTRA_ENV` (`.env.example` turns it on for this recipe): the loader keeps the tensors
@@ -204,14 +310,12 @@ four boxes, one model at a time, two settings make the switch fast:
 - **First boot:** the first boot of a new key writes the cache and is slower. A new key comes from a new image, a change
   between `TUNE=quality` and `TUNE=speed` or `context`, a different rank (`PEERS` order), or a different release. Each
   one is a full 79.6 GB rewrite and a slow first boot.
-  gr8's [SWITCHING.md](https://github.com/kindlingai/gr8/blob/main/docs/SWITCHING.md) gives 242 s from `up -d` returning
-  to ready for DeepSeek's first start, measured on 2026-11-07 on four GB10 boxes in a ring (two DGX Sparks and two GB10
-  boxes from another maker, with PCIe Gen4 NVMe) with this recipe's image `sha-50a8773`. It does not state n for that
-  figure. gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/main/docs/FIRST-BOOT.md) gives, for
-  DeepSeek-V4.1-Flash at TP=4, 79.6 GB a rank: "engines ready" 84 s without the cache, 110 s on the boot that writes it,
-  16 s after. That is one boot each (gr8 PR #382, 3 boots with the same options); it states no hardware beyond TP=4.
-- **After the first boot:** a switch from GLM-5.3 into this recipe waited 35.9-36.8 s after `up -d` returned (two runs,
-  the same boxes and image, cache written; SWITCHING.md).
+  gr8's [SWITCHING.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/SWITCHING.md) measured 242 s from `up -d` to
+  ready for DeepSeek's first start (2026-11-07, image `sha-50a8773`, four GB10 boxes in a ring, two of them not DGX
+  Sparks; n not stated). gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md)
+  measured "engines ready" at 84 s without the cache, 110 s on the boot that writes it, and 16 s after (one boot each).
+- **After the first boot:** a switch from GLM-5.3 into this recipe took 37.1 s and 39.2 s to health ready (two runs,
+  image `sha-ad3efdf`, cache written, 2026-11-09).
 - **Off:** put a `#` in front of the `EXTRA_ENV=GR8_GEN_CACHE=...` line in `.env` and run `docker compose up -d` on
   every box. The boot then computes the tensors every time. To free the disk, delete the `gen-cache` directory in the
   home volume.

@@ -65,8 +65,8 @@ Set the same values on all four boxes, in `.env` (compose) or with `docker run -
 
 | `TUNE` | the settings it sets (`knobs.sh`) | what it gives |
 |---|---|---|
-| `speed` (default) | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1 GR8_DS_MHC_Y_MXFP8=1`, `SESS=32`, `CAP=327680` | fast mode: 32 chats of up to 327,670 tokens; replies not bit-identical to the exact model's |
-| `context` | the first six of those switches (not `GR8_DS_MHC_Y_MXFP8`), `GR8_DS_CACHE_MIB=2048`, `SESS=16`, `CAP=1048576` | fast mode: one chat of up to 1,048,566 tokens, 16 chats at once |
+| `speed` (default) | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_ATTN_TC_TILE=1` and the release stack (README.md "What `TUNE=speed` sets": v2 prefill, `GR8_DS_MHC_ROW_SHARD=0 GR8_DS_MHC_Y_MXFP8=0`, Engram io_uring), `SESS=32`, `CAP=327680` | fast mode, measured in README.md "Results": 32 chats of up to 327,670 tokens; replies not bit-identical to the exact model's |
+| `context` | the five switches above, `GR8_DS_MHC_ROW_SHARD=1`, `GR8_DS_CACHE_MIB=2048`, `SESS=16`, `CAP=1048576` (not the release stack) | fast mode: one chat of up to 1,048,566 tokens, 16 chats at once |
 | `quality` | none of those switches, `GR8_DS_MHC_Y_MXFP8` included (gr8's launcher defaults), `SESS=5`, `CAP=262144` | the exact model's output: 5 chats of up to 262,134 tokens |
 
 What else `knobs.sh` does:
@@ -142,7 +142,7 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
    ```bash
    docker run -d --name ds41-4x-spark --gpus all --network host --pid host --device /dev/infiniband \
      --ulimit memlock=-1 --ulimit core=0 --cap-drop ALL --cap-add IPC_LOCK \
-     --security-opt no-new-privileges --read-only --tmpfs /tmp:size=1g,mode=1777 --init --oom-score-adj 1000 \
+     --security-opt no-new-privileges --security-opt seccomp=<dir>/seccomp-iouring.json --read-only --tmpfs /tmp:size=1g,mode=1777 --init --oom-score-adj 1000 \
      -e PEERS=<head>,<box2>,<box3>,<box4> -e IPS=<four root-1 addresses> -e IPS2=<four root-2 addresses> \
      -e TUNE=speed \
      -v ds41-release:/var/lib/gr8/release -v ds41-home:/var/lib/gr8/home \
@@ -157,7 +157,7 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
    ```bash
    git clone --recurse-submodules https://github.com/kindlingai/deepseek-v4.1-flash-exlr8-4x-spark
    cd deepseek-v4.1-flash-exlr8-4x-spark
-   cp .env.example .env          # set PEERS, IPS and IPS2 (or MENTAT=1), and TUNE: the same file on every box
+   cp .env.example .env          # uncomment and set PEERS, IPS and IPS2 (or MENTAT=1), and TUNE: the same file on every box
    docker compose run --rm gr8 fetch
    ./install-seccomp.py
    docker compose up -d
@@ -169,9 +169,10 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 ## 4. Check that it serves
 
 - On the head, `docker logs -f ds41-4x-spark` (compose: `docker compose logs -f`) prints `serving: http://...` when the
-  cluster serves. Expect about 2 minutes: in our run it printed this 104 s after the four containers started. The first
-  boot of a new cache key with the gen cache on (a new image, or a `TUNE` change between `quality` and `speed` or
-  `context`) writes the cache and takes longer (README.md, "The gen cache: disk, first boot, off", has the measured
+  cluster serves. In our run on 2026-11-09 the first boot (cold disk) of the image `sha-ad3efdf` printed it 212.7 s
+  after the four containers started, with the gen cache written; a switch from GLM-5.3 after that was ready in 37-39 s.
+  The first boot of a new cache key with the gen cache on (a new image, or a `TUNE` change between `quality` and `speed`
+  or `context`) writes the cache and takes longer (README.md, "The gen cache: disk, first boot, off", has the measured
   times).
 - On every box, `docker exec ds41-4x-spark gr8 ds41 health` exits 0 when that box serves. With compose,
   `docker compose ps` shows the container as `healthy` once this check passes.
@@ -224,10 +225,9 @@ If a step fails for a reason not listed here, ask on the KindlingAI Discord (the
 
 ## 6. Not measured yet: tell the person
 
-- We booted the image `sha-661d148` on four boxes on 2026-11-06: ready in 104 s, smoke test 11 of 11, 72 of 75 right
-  on the 75-item check in fast mode. The speed numbers in README.md still come from an older gr8 with the same engine
-  settings, booted through our own test harness. The KV cache is always fp8, and the image's engine is built with
-  `DS41_MX=48`.
+- README.md "Results": the speed rows were measured on 2026-11-08 with gr8 `0015fd0` in this recipe's settings, on an
+  image with that engine but not yet this recipe's published image; the boot and switch rows are from the published image
+  `sha-ad3efdf` on 2026-11-09. The KV cache is always fp8, and the image's engine is built with `DS41_MX=48`.
 - `TUNE=context` was measured on the image `sha-15b7eec` in one boot on 2026-11-07: a cold 1,031,542-token prompt read in 388.7 s (2,650 tok/s), the same prompt again in 1.19 s from
   the prefix cache, replies after it at 91.9 tok/s, and 8.7-9.4 GiB free a box just after ready. Recall and output
   quality at 1M, and three distinct cold 1M prompts at once, are not measured on that image.
