@@ -12,35 +12,49 @@ DeepSeek-V4.1-Flash (DeepSeek's release [DeepSeek-V4.1-Flash-1017](https://huggi
 
 ## Results
 
-This image (`{{IMAGE_TAG}}`, gr8 [`0015fd0`](https://github.com/kindlingai/gr8/commit/0015fd04512ebc38e369475a1ce7dee76d445d77)), in fast mode
-(`TUNE=speed`, the default), on four DGX Sparks (GB10, 128 GB each) {{TOPOLOGY: on one 200G switch | in a ring}}, on
-{{DATE}}. Every speed is in tokens per second (tok/s).
+gr8 [`0015fd0`](https://github.com/kindlingai/gr8/commit/0015fd04512ebc38e369475a1ce7dee76d445d77) in fast mode
+(`TUNE=speed`, the default) with this recipe's settings, on two sets of four DGX Sparks (GB10, 128 GB each), each set
+cabled in a ring, on 2026-11-08: set A for prefill and one-stream decode, set B for many streams. Every speed is in
+tokens per second (tok/s).
 
-| | tok/s |
-|---|---|
-| prefill: 32K / 128K prompt | {{PF_32K}} / {{PF_128K}} |
-| decode, one stream: {{SHORT_PROMPT}}-token / {{LONG_PROMPT}}-token prompt | {{DEC1_SHORT}} / {{DEC1_LONG}} |
-| total decode: 4 / 8 / 16 / 32 streams ({{CONC_PROMPT}}-token prompts) | {{AGG_4}} / {{AGG_8}} / {{AGG_16}} / {{AGG_32}} |
+Prefill, cold prompt (set A):
+
+| prompt | runs | first token | prefill tok/s | decode tok/s after it, same request |
+|---|---|---|---|---|
+| 32K tokens | 16 | 4.12 s | 7,950 | 103.5 |
+| 128K tokens | 8 | 16.6 s | 7,887 | 98.2 |
+
+One-stream decode on short prompts (64-72 tokens, up to 512 tokens out; set A, two series of 6 runs each):
+
+| work | code | prose | structured | counting |
+|---|---|---|---|---|
+| tok/s | 143.5-145.0 | 83.4-86.0 | 160.4-160.9 | 162.1-162.4 |
+
+Many streams at once (set B, short mixed prompts, up to 512 tokens out per stream):
+
+| streams | 8 | 16 | 32 |
+|---|---|---|---|
+| total decode tok/s | 200.3 | 221.3 | 226.4 |
+| first token, median | 2.5-2.7 s | 6.2-6.4 s | 14.2-14.6 s |
 
 | | |
 |---|---|
-| first token after a 32K / 128K prompt | {{TTFT_32K}} s / {{TTFT_128K}} s |
-| longest chat (prompt and reply) | {{MAX_CTX}} tokens |
-| ready after `up -d` (gen cache written) | {{BOOT_S}} s |
-| switch from GLM-5.3 to this recipe | {{SWITCH_S}} s |
+| longest prompt measured | 262,219 tokens (`CAP` allows 327,680) |
+| ready after `up -d` (image `{{IMAGE_TAG}}`, {{DATE}}) | {{BOOT_S}} s |
 
 Fast mode's replies are not bit-identical to the exact model's (`TUNE=quality`). On the 75-item quality check of gr8's
 [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
-this build scored {{QEVAL}} of 75. Other hardware and other box counts were not measured.
+this build scored 73 of 75 on each of two boots. Other hardware and other box counts were not measured.
 
 ### How we measure
 
-- The image above, started as this README shows, with no other settings unless the row says so.
+- gr8's own benchmark (`bench/bench.py`) against the running server, with this recipe's settings. The speed rows used
+  an image with the engine built from `0015fd0`; the boot row used this recipe's published image.
 - No tracing or per-stage timing on the measured requests.
-- A number that compares two settings comes from paired runs: both settings on the same boxes, each on a fresh boot,
-  in both orders.
 - Every speed is tok/s. Every decode number gives its prompt length.
-- Each number is {{STAT: the mean | the range}} of {{N}} runs. The raw runs and the method are in gr8's
+- A single number is the mean of the runs in its row; a range is the lowest and highest series. Many-stream totals:
+  two series of two batches per level, the total of each series' tokens over its decode time, then the mean of the
+  two series. The raw runs and the method are in gr8's
   [DEEPSEEK.md](https://github.com/kindlingai/gr8/blob/main/docs/DEEPSEEK.md#how-we-measure).
 
 ## What you need
