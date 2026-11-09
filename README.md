@@ -12,49 +12,63 @@ DeepSeek-V4.1-Flash (DeepSeek's release [DeepSeek-V4.1-Flash-1017](https://huggi
 
 ## Results
 
-gr8 [`0015fd0`](https://github.com/kindlingai/gr8/commit/0015fd04512ebc38e369475a1ce7dee76d445d77) in fast mode
-(`TUNE=speed`, the default) with this recipe's settings, on two sets of four DGX Sparks (GB10, 128 GB each), each set
-cabled in a ring, on 2026-11-08: set A for prefill and one-stream decode, set B for many streams. Every speed is in
-tokens per second (tok/s).
+gr8 [`43cad38`](https://github.com/kindlingai/gr8/commit/43cad388ec8b7026b4feed2190fc5ce5a90c0c6d) in fast mode
+(`TUNE=speed`, the default) with this recipe's settings, from the published image `sha-7c2088a`
+(digest `sha256:452d5fcc3de3a22240ad7b879d2985f36e38931aa6eee6c9cc425322a3a90acd`), on four DGX Sparks (GB10, 128 GB
+each) cabled in a ring (set A), on 2026-11-09. Rows and columns marked "release 1 settings" are older numbers: gr8
+`0015fd0` and the settings before this release. The decode right after each prefill is from set A on 2026-11-08; the
+many-stream, boot and switch rows are from a second set of four GB10 boxes (set B) on 2026-11-08 and 2026-11-09.
+Every speed is in tokens per second (tok/s).
 
 Prefill, cold prompt (set A):
 
-| prompt | runs | first token | prefill tok/s | decode tok/s after it, same request |
+| prompt | runs | first token | prefill tok/s | decode tok/s after it, same request (release 1 settings) |
 |---|---|---|---|---|
-| 32K tokens | 16 | 4.12 s | 7,950 | 103.5 |
-| 128K tokens | 8 | 16.6 s | 7,887 | 98.2 |
+| 32K tokens | 8 | 4.19 s | 7,835 | 103.5 |
+| 128K tokens | 4 | 16.5 s | 7,940 | 98.2 |
+| 256K tokens | 4 | 34.5 s | 7,590 | 101.0 |
 
-One-stream decode on short prompts (64-72 tokens, up to 512 tokens out; set A, two series of 6 runs each):
+One-stream decode on short prompts (65-72 tokens, up to 512 tokens out; set A, two series of 6 runs each):
 
 | work | code | prose | structured | counting |
 |---|---|---|---|---|
-| tok/s | 143.5-145.0 | 83.4-86.0 | 160.4-160.9 | 162.1-162.4 |
+| tok/s | 142.8-144.2 | 83.3-85.8 | 159.7-160.1 | 161.5-162.2 |
 
-Many streams at once (set B, short mixed prompts, up to 512 tokens out per stream):
+Many streams at once (short mixed prompts, up to 512 tokens out per stream):
 
 | streams | 8 | 16 | 32 |
 |---|---|---|---|
-| total decode tok/s | 200.3 | 221.3 | 226.4 |
-| first token, median | 2.5-2.7 s | 6.2-6.4 s | 14.2-14.6 s |
+| total decode tok/s (set A, prompts 62-76 tokens) | 217.4 | 249.2 | 242.8 |
+| first token, median (set A) | 1.39 s | 2.48 s | 5.04 s |
+| total decode tok/s (set B, release 1 settings) | 200.3 | 221.3 | 226.4 |
+| first token, median (set B, release 1 settings) | 2.5-2.7 s | 6.2-6.4 s | 14.2-14.6 s |
+
+Sixteen streams in a closed loop (each stream sends its next request when its last one ends; prompts 61-78 tokens, up
+to 256 tokens out, 180 s window; set A): 236.0 tok/s total, first token median 1.47 s.
 
 | | |
 |---|---|
-| longest prompt measured | 262,219 tokens (`CAP` allows 327,680) |
-| first boot, cold disk: the image `sha-ad3efdf` on four boxes, container start to `serving:` (gen cache written) | 212.7 s |
-| switch from GLM-5.3 to this recipe, gen cache on disk, to health ready (`./gr8 switch`, two runs) | 37.1 s / 39.2 s |
-| switch from this recipe back to GLM-5.3, to health ready (two runs) | 76.0 s / 74.1 s |
+| longest prompt measured | 262,420 tokens (`CAP` allows 327,680) |
+| start with the release already in the OS page cache: container recreate to the first chat answer (set A) | 93.3 s |
+| first boot, cold disk: the image `sha-ad3efdf` on four boxes, container start to `serving:` (gen cache written; release 1 settings) | 212.7 s |
+| switch from GLM-5.3 to this recipe, gen cache on disk, to health ready (`./gr8 switch`, two runs; release 1 settings, image `sha-ad3efdf`) | 37.1 s / 39.2 s |
+| switch from this recipe back to GLM-5.3, to health ready (two runs; release 1 settings, image `sha-ad3efdf`) | 76.0 s / 74.1 s |
 
 Fast mode's replies are not bit-identical to the exact model's (`TUNE=quality`). On the 75-item quality check of gr8's
-[FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
-this build scored 73 of 75 on each of two boots, and the published image `sha-ad3efdf` scored 73 of 75 on 2026-11-09
-(the same two items missed each time). Other hardware and other box counts were not measured.
+[FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/43cad388ec8b7026b4feed2190fc5ce5a90c0c6d/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
+the published image `sha-7c2088a` scored 73 of 75 on 2026-11-09, the same score as the release 1 image on the same
+boxes that day. Other hardware and other box counts were not measured.
 
 ### How we measure
 
-- gr8's own benchmark (`bench/bench.py`) against the running server, with this recipe's settings. The speed rows used
-  an image with the engine built from `0015fd0`. The boot and switch rows used this recipe's published image
-  `sha-ad3efdf` on 2026-11-09 (set B); its 32K prefill and its 8, 16 and 32-stream totals on set B were within 2.1%
-  of the same build's on set B.
+- gr8's own benchmark (`bench/bench.py`) against the running server, with this recipe's settings. For the set A rows
+  we used `bench.py` with the prompt-length output and the closed-loop mode of gr8 PR [#471](https://github.com/kindlingai/gr8/pull/471).
+- The set A rows used this recipe's published image `sha-7c2088a` (gr8 `43cad38`) on one boot, between two boots of
+  the release 1 image `sha-ad3efdf` on the same boxes. No first-token, prefill, one-stream, many-stream or closed-loop
+  number of the new image was more than 1% worse than the mean of the two release 1 boots. The "decode after it"
+  column is not from this image: it keeps the release 1 numbers (gr8 `0015fd0`, set A, 2026-11-08; 16, 8 and 2 runs).
+- The rows marked "release 1 settings" used gr8 `0015fd0`; the boot and switch rows among them used the published
+  image `sha-ad3efdf`.
 - No tracing or per-stage timing on the measured requests.
 - Every speed is tok/s. Every one-stream decode number gives its prompt length.
 - A single number is the mean of the runs in its row; a range is the lowest and highest series. Many-stream totals:
