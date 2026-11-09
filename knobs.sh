@@ -5,7 +5,8 @@
 #             mentat cluster, in group GROUP (gr8-ds41-4x by default).
 #   TUNE=speed (default): fast mode with the release stack. FIRST-BOOT.md Q3's two switches and
 #             Q4's output head, which change the output; the prefill setting GR8_DS_ATTN_TC_MF=2 of gr8/docs/ENV.md;
-#             the release stack ($release below, with GR8_DS_ATTN_TC_TILE=2); and,
+#             the release stack ($release below, with GR8_DS_ATTN_TC_TILE=2 and the S2 settings GR8_S2_ADMIT_HOLD=1 and
+#             GR8_S2_TAIL_FIRST=1); and,
 #             unless set, SESS=32 and CAP=327680. The image's engine is built with DS41_MX=48 (Dockerfile), so a step
 #             holds 48 rows.
 #   TUNE=context: FIRST-BOOT.md Q3 and Q4, GR8_DS_ATTN_TC_MF=2, GR8_DS_ATTN_TC_TILE=1, GR8_DS_MHC_ROW_SHARD=1,
