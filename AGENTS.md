@@ -14,7 +14,9 @@ On every box:
   the `nvidia` runtime.
 - 510.6 GB of disk is free where Docker keeps volumes, for the release volume `ds41-release`:
   `df -h "$(docker info --format '{{.DockerRootDir}}')"`. Or set `RELEASE_DIR` to a host directory on local NVMe,
-  owned by uid 1000.
+  owned by uid 1000. A `.env` copied from `.env.example` also turns the gen cache on, which needs about 80 GB more in
+  the home volume `ds41-home` (`GR8_HOME_DIR`), and up to about 160 GB once a second cache key exists, for example
+  after a new image or a `TUNE` change between `quality` and `speed` or `context` (section 2).
 - The box can reach Hugging Face for the fetch: `curl -sI https://huggingface.co` answers.
 - TCP ports 7340 and 7341 are open between the four boxes: no firewall blocks them. Check this before the boot, while
   nothing listens on those ports. `nc` may not be installed, so use `python3` and bash. On a peer, listen on one port:
@@ -73,6 +75,15 @@ What else `knobs.sh` does:
 - Every value adds `GR8_DS_SESS_DRAFTS=1` when `SESS` is above 5.
 - A `CAP` or `SESS` you set is kept.
 - Settings in `EXTRA_ENV` come after the recipe's, so yours win.
+- `.env.example` sets `EXTRA_ENV=GR8_GEN_CACHE=/var/lib/gr8/home/gen-cache`, so a `.env` copied from it has the gen
+  cache on: the loader keeps the tensors it computes at load on the box's disk and reads them back at the next boot with
+  the same cache key (the same image, rank and release, and a `TUNE` of the same kind: `quality`, or `speed` and
+  `context`). Tell the person before the boot: it takes about 80 GB a box in the home volume (79.6 GB; up to about 160 GB
+  with two keys, as the loader keeps the two newest keys' entries), and the first boot of a key writes it and is slower
+  (README.md, "The gen cache: disk, first boot, off", has the measured times). A new key comes from a new image, a change
+  of `TUNE` between `quality` and `speed` or `context`, a different rank or a different release: each is a full 79.6 GB
+  rewrite and a slow first boot, so say so before the person changes `TUNE` between those kinds later. To turn it off,
+  put a `#` in front of that line in `.env` on all four boxes before the boot.
 - Any other `TUNE` value stops the boot. `EXACT` is the older name: the image refuses it and says that `EXACT=1` is
   `TUNE=quality`.
 
@@ -158,7 +169,10 @@ Any other gr8 launcher option works too (gr8/KNOBS.md).
 ## 4. Check that it serves
 
 - On the head, `docker logs -f ds41-4x-spark` (compose: `docker compose logs -f`) prints `serving: http://...` when the
-  cluster serves. Expect about 2 minutes: in our run it printed this 104 s after the four containers started.
+  cluster serves. Expect about 2 minutes: in our run it printed this 104 s after the four containers started. The first
+  boot of a new cache key with the gen cache on (a new image, or a `TUNE` change between `quality` and `speed` or
+  `context`) writes the cache and takes longer (README.md, "The gen cache: disk, first boot, off", has the measured
+  times).
 - On every box, `docker exec ds41-4x-spark gr8 ds41 health` exits 0 when that box serves. With compose,
   `docker compose ps` shows the container as `healthy` once this check passes.
 - `docker exec ds41-4x-spark gr8 ds41 status` shows every box's state, engine and free memory.

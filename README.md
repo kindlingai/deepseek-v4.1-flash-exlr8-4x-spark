@@ -14,7 +14,9 @@ _**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg
 
 - Four Sparks on a 200G switch, or cabled in a ring (see Clustering).
 - Docker and the NVIDIA container toolkit on each box (both come with DGX OS).
-- 510.6 GB of free disk on each box: every box holds the whole release.
+- 510.6 GB of free disk on each box: every box holds the whole release. The gen cache that `.env.example` turns on needs
+  about 80 GB more (up to about 160 GB once a second cache key exists, for example after a new image or a `TUNE` change
+  between `quality` and `speed` or `context`; see "Switch between this and GLM-5.3").
 - TCP ports 7340 and 7341 open between the boxes.
 - No other model running on any box.
 - Proactive memory compaction off on each box, once, as root (it holds across reboots):
@@ -188,10 +190,31 @@ other `gr8` options, which you can also set in `.env`. Some engine settings for 
 To run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/main/docs/GLM-5.3.md) at TP=4 on the same
 four boxes, one model at a time, two settings make the switch fast:
 
-- `GR8_GEN_CACHE` in both models' `EXTRA_ENV` (`.env.example`): the loader keeps the tensors it computes at load on the
-  SSD and reads them back at the next boot of the same image. The first boot of an image writes them.
+- `GR8_GEN_CACHE` in both models' `EXTRA_ENV` (`.env.example` turns it on for this recipe): the loader keeps the tensors
+  it computes at load on the SSD and reads them back at the next boot with the same cache key: the same image, rank and
+  release, and a `TUNE` of the same kind (`quality`, or `speed` and `context`). The first boot of a new key writes them.
 - In gr8's `docker/.env` for GLM, `KV_STORE=ssd:<dir>,size=200G,persist=on,keep=sessions` with `GR8_STOP_GRACE=150s`:
   at the stop, GLM writes its open chats to the SSD, and the next boot reads them back.
+
+### The gen cache: disk, first boot, off
+
+- **Disk:** about 80 GB a box (79.6 GB), in the home volume (`GR8_HOME_DIR`), besides the 510.6 GB release. The loader
+  keeps the entries of the two newest keys and deletes older ones, so a box that has used two keys holds up to about
+  160 GB. A new image can make a new key.
+- **First boot:** the first boot of a new key writes the cache and is slower. A new key comes from a new image, a change
+  between `TUNE=quality` and `TUNE=speed` or `context`, a different rank (`PEERS` order), or a different release. Each
+  one is a full 79.6 GB rewrite and a slow first boot.
+  gr8's [SWITCHING.md](https://github.com/kindlingai/gr8/blob/main/docs/SWITCHING.md) gives 242 s from `up -d` returning
+  to ready for DeepSeek's first start, measured on 2026-11-07 on four GB10 boxes in a ring (two DGX Sparks and two GB10
+  boxes from another maker, with PCIe Gen4 NVMe) with this recipe's image `sha-50a8773`. It does not state n for that
+  figure. gr8's [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/main/docs/FIRST-BOOT.md) gives, for
+  DeepSeek-V4.1-Flash at TP=4, 79.6 GB a rank: "engines ready" 84 s without the cache, 110 s on the boot that writes it,
+  16 s after. That is one boot each (gr8 PR #382, 3 boots with the same options); it states no hardware beyond TP=4.
+- **After the first boot:** a switch from GLM-5.3 into this recipe waited 35.9-36.8 s after `up -d` returned (two runs,
+  the same boxes and image, cache written; SWITCHING.md).
+- **Off:** put a `#` in front of the `EXTRA_ENV=GR8_GEN_CACHE=...` line in `.env` and run `docker compose up -d` on
+  every box. The boot then computes the tensors every time. To free the disk, delete the `gen-cache` directory in the
+  home volume.
 
 GLM to DeepSeek, on every box (GLM from gr8's `docker/` directory, this recipe from its own):
 
@@ -214,7 +237,7 @@ docker stop ds41-4x-spark && docker rm ds41-4x-spark   # compose: docker compose
 ```
 
 The release stays in the `ds41-release` volume, so this recipe starts again later without a new fetch. To free its
-510.6 GB, remove the volumes on every box:
+510.6 GB and the gen cache, remove the volumes on every box:
 
 ```bash
 docker volume rm ds41-release ds41-home
