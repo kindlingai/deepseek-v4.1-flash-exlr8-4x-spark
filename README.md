@@ -12,7 +12,7 @@ DeepSeek-V4.1-Flash (DeepSeek's release [DeepSeek-V4.1-Flash-1017](https://huggi
 
 ## Results
 
-This image (`{{IMAGE_TAG}}`, gr8 [`{{GR8_SHA7}}`](https://github.com/kindlingai/gr8/commit/{{GR8_SHA}})), in fast mode
+This image (`{{IMAGE_TAG}}`, gr8 [`0015fd0`](https://github.com/kindlingai/gr8/commit/0015fd04512ebc38e369475a1ce7dee76d445d77)), in fast mode
 (`TUNE=speed`, the default), on four DGX Sparks (GB10, 128 GB each) {{TOPOLOGY: on one 200G switch | in a ring}}, on
 {{DATE}}. Every speed is in tokens per second (tok/s).
 
@@ -30,7 +30,7 @@ This image (`{{IMAGE_TAG}}`, gr8 [`{{GR8_SHA7}}`](https://github.com/kindlingai/
 | switch from GLM-5.3 to this recipe | {{SWITCH_S}} s |
 
 Fast mode's replies are not bit-identical to the exact model's (`TUNE=quality`). On the 75-item quality check of gr8's
-[FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/{{GR8_SHA}}/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
+[FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
 this build scored {{QEVAL}} of 75. Other hardware and other box counts were not measured.
 
 ### How we measure
@@ -41,7 +41,7 @@ this build scored {{QEVAL}} of 75. Other hardware and other box counts were not 
   in both orders.
 - Every speed is tok/s. Every decode number gives its prompt length.
 - Each number is {{STAT: the mean | the range}} of {{N}} runs. The raw runs and the method are in gr8's
-  [DEEPSEEK.md](https://github.com/kindlingai/gr8/blob/{{GR8_SHA}}/docs/DEEPSEEK.md#how-we-measure).
+  [DEEPSEEK.md](https://github.com/kindlingai/gr8/blob/main/docs/DEEPSEEK.md#how-we-measure).
 
 ## What you need
 
@@ -87,7 +87,7 @@ MTU 9000, skip this step and put those addresses in `IPS` and `IPS2`.
 
 Four boxes cabled in a ring without a switch also work, with `SHAPE=ring` and without `IPS` and `IPS2`. Cable each
 box's f0 port to the next box's f1 port, and list `PEERS` in that cable order
-([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/docs/DEPLOY.md#how-the-boxes-find-each-other)).
+([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/DEPLOY.md#how-the-boxes-find-each-other)).
 
 With [`mentat`](https://github.com/kindlingai/mentat) running on each box, the recipe finds the other boxes and their
 ConnectX addresses by itself. On each box:
@@ -202,14 +202,14 @@ it does not alter Docker's daemon settings or other containers. For `docker run`
 
 ## Web console
 
-gr8 has a small web console ([gr8/tools/console](https://github.com/kindlingai/gr8/tree/{{GR8_SHA}}/tools/console)):
+gr8 has a small web console ([gr8/tools/console](https://github.com/kindlingai/gr8/tree/0015fd04512ebc38e369475a1ce7dee76d445d77/tools/console)):
 one page with the model's stats, the boxes, the head log, three presets, and a switch between models. It runs apart
 from the engine, so it stays up while a model restarts, and it sends no requests to the model.
 
 It is read-only until you set `allow_control` in its config. With control on, it can change the recipe's `.env` on
 each box and restart the model: it keeps a backup of each file and has a "Restore previous settings" action. It has no
 login: keep it on `localhost` and reach it through an SSH tunnel. Its
-[README](https://github.com/kindlingai/gr8/blob/{{GR8_SHA}}/tools/console/README.md) has the setup.
+[README](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/tools/console/README.md) has the setup.
 
 ## Knobs
 
@@ -227,7 +227,7 @@ Set these in `.env` next to `compose.yaml` (see `.env.example`), or with `docker
 | `RELEASE` | a fixed commit | The release to fetch (`https://huggingface.co/<org>/<repo>@<commit>`). The fetch replaces only the files that differ. |
 | `EXTRA_ENV` | none | Engine settings as `NAME=value` pairs separated by spaces (`EXTRA_ENV="A=1 B=2"`). They come after the recipe's own. |
 
-[gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/4ed9e7bed53d6ed23ba1c4a32c993ccc3850af96/KNOBS.md) lists the
+[gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/KNOBS.md) lists the
 other `gr8` options, which you can also set in `.env`. Some engine settings for `EXTRA_ENV`:
 
 - `GR8_DS_CACHE_MIB` sets the in-memory prefix cache on each box: 4,096 MiB by default, 2,048 with `TUNE=context`. A
@@ -238,7 +238,7 @@ other `gr8` options, which you can also set in `.env`. Some engine settings for 
 
 `TUNE=speed` turns on these engine settings, one line each. A setting from the list in `EXTRA_ENV` replaces it. The
 rows marked "output" change the reply; the others give the same reply faster or with less memory.
-[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/{{GR8_SHA}}/docs/ENV.md) has the full text of each.
+[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/ENV.md) has the full text of each.
 
 | setting | what it does |
 |---|---|
