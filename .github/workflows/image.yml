@@ -97,8 +97,11 @@ jobs:
             echo "$out" | grep -E "^  (CAP|SESS|EXTRA_ENV) "
             for p in "$@"; do echo "$out" | grep -qE -- "$p" || { echo "TUNE=$t: show-config has no $p"; exit 1; }; done
           }
-          want speed "^  CAP +327680 " "^  SESS +32 " "GR8_DS_RELAXED_ACCEPT=" "GR8_DS_MHC_ROW_SHARD=0" "GR8_DS_PF_V2=1" "GR8_DS_PF_V2_ATTN_PIPE=1" "GR8_DS_ENGRAM_IO_URING=128"
-          want context "^  CAP +1048576 " "^  SESS +16 " "GR8_DS_RELAXED_ACCEPT=" "GR8_DS_CACHE_MIB=2048" "GR8_DS_MHC_ROW_SHARD=1"
+          want speed "^  CAP +327680 " "^  SESS +32 " "GR8_DS_RELAXED_ACCEPT=" "GR8_DS_MHC_ROW_SHARD=0" "GR8_DS_PF_V2=1" "GR8_DS_PF_V2_ATTN_PIPE=1" "GR8_DS_ENGRAM_IO_URING=128" "GR8_DS_ATTN_TC_TILE=2" "GR8_S2_ADMIT_HOLD=1" "GR8_S2_TAIL_FIRST=1"
+          want context "^  CAP +1048576 " "^  SESS +16 " "GR8_DS_RELAXED_ACCEPT=" "GR8_DS_CACHE_MIB=2048" "GR8_DS_MHC_ROW_SHARD=1" "GR8_DS_ATTN_TC_TILE=1"
+          if docker run --rm -e "$peers" "$img" show-config --no-check | grep -q "GR8_DS_ATTN_TC_TILE=1"; then
+            echo "TUNE=speed: GR8_DS_ATTN_TC_TILE=1 is still set next to tile 2"; exit 1
+          fi
           want quality "^  CAP +262144 " "^  SESS +5 "
           if docker run --rm -e "$peers" -e TUNE=quality "$img" show-config --no-check | grep -q GR8_DS_RELAXED_ACCEPT; then
             echo "TUNE=quality: fast mode's switches are on"; exit 1
