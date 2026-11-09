@@ -15,7 +15,8 @@ _**Join our discord to learn more about KindlingAI and `gr8`: https://discord.gg
 - Four Sparks on a 200G switch, or cabled in a ring (see Clustering).
 - Docker and the NVIDIA container toolkit on each box (both come with DGX OS).
 - 510.6 GB of free disk on each box: every box holds the whole release. The gen cache that `.env.example` turns on needs
-  about 80 GB more (up to about 160 GB after an image change; see "Switch between this and GLM-5.3").
+  about 80 GB more (up to about 160 GB once a second cache key exists, for example after a new image or a `TUNE` change
+  between `quality` and `speed` or `context`; see "Switch between this and GLM-5.3").
 - TCP ports 7340 and 7341 open between the boxes.
 - No other model running on any box.
 - Proactive memory compaction off on each box, once, as root (it holds across reboots):
@@ -190,17 +191,19 @@ To run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/ma
 four boxes, one model at a time, two settings make the switch fast:
 
 - `GR8_GEN_CACHE` in both models' `EXTRA_ENV` (`.env.example` turns it on for this recipe): the loader keeps the tensors
-  it computes at load on the SSD and reads them back at the next boot of the same image. The first boot of an image
-  writes them.
+  it computes at load on the SSD and reads them back at the next boot with the same cache key: the same image, rank and
+  release, and a `TUNE` of the same kind (`quality`, or `speed` and `context`). The first boot of a new key writes them.
 - In gr8's `docker/.env` for GLM, `KV_STORE=ssd:<dir>,size=200G,persist=on,keep=sessions` with `GR8_STOP_GRACE=150s`:
   at the stop, GLM writes its open chats to the SSD, and the next boot reads them back.
 
 ### The gen cache: disk, first boot, off
 
 - **Disk:** about 80 GB a box (79.6 GB), in the home volume (`GR8_HOME_DIR`), besides the 510.6 GB release. The loader
-  keeps the entries of the two newest images and deletes older ones, so a box that has run two images holds up to about
-  160 GB.
-- **First boot:** the first boot of an image, and the first boot after an image change, writes the cache and is slower.
+  keeps the entries of the two newest keys and deletes older ones, so a box that has used two keys holds up to about
+  160 GB. A new image can make a new key.
+- **First boot:** the first boot of a new key writes the cache and is slower. A new key comes from a new image, a change
+  between `TUNE=quality` and `TUNE=speed` or `context`, a different rank (`PEERS` order), or a different release. Each
+  one is a full 79.6 GB rewrite and a slow first boot.
   gr8's [SWITCHING.md](https://github.com/kindlingai/gr8/blob/main/docs/SWITCHING.md) gives 242 s from `up -d` returning
   to ready for DeepSeek's first start, measured on 2026-11-07 on four GB10 boxes in a ring (two DGX Sparks and two GB10
   boxes from another maker, with PCIe Gen4 NVMe) with this recipe's image `sha-50a8773`. It does not state n for that
