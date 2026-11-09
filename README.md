@@ -40,7 +40,7 @@ Many streams at once (set B, short mixed prompts, up to 512 tokens out per strea
 | | |
 |---|---|
 | longest prompt measured | 262,219 tokens (`CAP` allows 327,680) |
-| ready after `up -d` (image `{{IMAGE_TAG}}`, {{DATE}}) | {{BOOT_S}} s |
+| first boot of the image `sha-ad3efdf` on four boxes, container start to `serving:` (2026-11-09) | 212.7 s |
 
 Fast mode's replies are not bit-identical to the exact model's (`TUNE=quality`). On the 75-item quality check of gr8's
 [FIRST-BOOT.md](https://github.com/kindlingai/gr8/blob/0015fd04512ebc38e369475a1ce7dee76d445d77/docs/FIRST-BOOT.md#3-deepseek-v41-flash-ds41-speed-against-exactness),
