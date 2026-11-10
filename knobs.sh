@@ -11,8 +11,9 @@
 #             holds 48 rows.
 #   TUNE=context: FIRST-BOOT.md Q3 and Q4, GR8_DS_ATTN_TC_MF=2, GR8_DS_ATTN_TC_TILE=1, GR8_DS_MHC_ROW_SHARD=1,
 #             GR8_DS_CACHE_MIB=2048 and, unless set, SESS=16 and CAP=1048576 (FIRST-BOOT.md Q2). Not the release stack.
-#   TUNE=quality: the exact model, with gr8's launcher defaults and, unless set, SESS=5 and CAP=262144. EXACT=1, the
-#             older name, is refused with a pointer here.
+#   TUNE=quality: the exact model: gr8's EXACT=1 (the old prefill path) and, unless set, SESS=5 and CAP=262144. EXACT
+#             set by hand is refused with a pointer here; TUNE=quality sets it. (TUNE=context's GR8_DS_MHC_ROW_SHARD=1
+#             selects gr8's old prefill path by itself.)
 #   SESS above 5 adds GR8_DS_SESS_DRAFTS=1: each chat drafts fewer tokens as more chats write (FIRST-BOOT.md Q1), and
 #             on the image's 48-row build none when more than 24 write (gr8/docs/ENV.md).
 # Engram is always on, from the token map in ENGRAM_PREFIX (entrypoint.sh). Settings already in EXTRA_ENV are kept, after
@@ -39,7 +40,7 @@ release="$release GR8_DS_ATTN_TC_TILE=2 GR8_S2_ADMIT_HOLD=1 GR8_S2_TAIL_FIRST=1"
 case "${TUNE:-speed}" in
   speed) ds_words="$ds_words $fast $release"; SESS=${SESS:-32} CAP=${CAP:-327680} ;;
   context) ds_words="$ds_words $fast GR8_DS_ATTN_TC_TILE=1 GR8_DS_MHC_ROW_SHARD=1 GR8_DS_CACHE_MIB=2048"; SESS=${SESS:-16} CAP=${CAP:-1048576} ;;
-  quality) SESS=${SESS:-5} CAP=${CAP:-262144} ;;
+  quality) export EXACT=1; SESS=${SESS:-5} CAP=${CAP:-262144} ;;
   *) echo "TUNE=$TUNE: want speed (fast mode, the default), context (one chat up to 1M tokens) or quality (the exact model)" >&2; exit 2 ;;
 esac
 export SESS CAP
