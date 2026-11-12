@@ -2,7 +2,7 @@
   "version": 1,
   "title": "DeepSeek-V4.1-Flash",
   "variant": "exlr8 native, fp8 KV, fast mode",
-  "summary": "DeepSeek-V4.1-Flash on four GB10 boxes with gr8 at TP=4: the exlr8 native release, fp8 KV, Engram, 32 chats at once, fast mode (not exact), measured 2026-11-09 on the image sha-7c2088a (gr8 43cad38).",
+  "summary": "DeepSeek-V4.1-Flash on four GB10 boxes with gr8 at TP=4: the exlr8 native release, fp8 KV, Engram, 32 chats at once, fast mode (not exact), measured 2026-11-11 on the staged image built from gr8 c2220f2 (one boot).",
   "model": "kindlingai/deepseek-v4.1-flash-exlr8-native",
   "hardware": "DGX Spark (GB10)",
   "stack": [
@@ -18,55 +18,89 @@
       "label": "TP=4",
       "nodes": 4,
       "decode": {
-        "code": 143.5,
-        "prose": 84.6,
-        "structured": 159.9
+        "code": 137.5,
+        "prose": 83.9,
+        "structured": 157.5
       },
       "decode_prompt_tokens": [
         65,
-        72
+        71
       ],
       "prefill": [
         {
           "context": 32768,
-          "tps": 7835
+          "tps": 7720
         },
         {
           "context": 131072,
-          "tps": 7940
+          "tps": 8408
         },
         {
           "context": 262144,
-          "tps": 7590
+          "tps": 8344
         }
       ],
       "concurrency": [
         {
           "streams": 8,
-          "aggregate_tps": 217.4,
-          "ttft_p50_s": 1.39
+          "aggregate_tps": 202.9,
+          "ttft_p50_s": 1.35
         },
         {
           "streams": 16,
-          "aggregate_tps": 249.2,
-          "ttft_p50_s": 2.48
+          "aggregate_tps": 238.7,
+          "ttft_p50_s": 2.56
         },
         {
           "streams": 32,
-          "aggregate_tps": 242.8,
-          "ttft_p50_s": 5.04
+          "aggregate_tps": 233.3,
+          "ttft_p50_s": 5.17
         }
       ],
       "concurrency_prompt_tokens": [
-        62,
-        76
+        63,
+        74
       ],
       "max_context": 327670,
+      "kv_pool_tokens": 10485760,
       "max_concurrent": 32,
+      "max_tokens_per_chat": [
+        {
+          "chats": 1,
+          "tokens": 327670,
+          "source": "measured"
+        },
+        {
+          "chats": 2,
+          "tokens": 327670,
+          "source": "computed"
+        },
+        {
+          "chats": 4,
+          "tokens": 327670,
+          "source": "computed"
+        },
+        {
+          "chats": 8,
+          "tokens": 327670,
+          "source": "computed"
+        },
+        {
+          "chats": 16,
+          "tokens": 327670,
+          "source": "computed"
+        },
+        {
+          "chats": 32,
+          "tokens": 327670,
+          "source": "computed"
+        }
+      ],
+      "max_tokens_per_chat_note": "32 dedicated 327,680-token slabs",
       "quality": [
         {
-          "name": "75-item check",
-          "value": "73 of 75"
+          "name": "Needle recall",
+          "value": "found at 128K"
         }
       ]
     }

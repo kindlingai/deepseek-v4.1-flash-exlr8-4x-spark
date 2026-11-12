@@ -65,16 +65,16 @@ Set the same values on all four boxes, in `.env` (compose) or with `docker run -
 
 | `TUNE` | the settings it sets (`knobs.sh`) | what it gives |
 |---|---|---|
-| `speed` (default) | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2` and the release stack (README.md "What `TUNE=speed` sets": v2 prefill, `GR8_DS_MHC_ROW_SHARD=0 GR8_DS_MHC_Y_MXFP8=0`, Engram io_uring, `GR8_DS_ATTN_TC_TILE=2`, `GR8_S2_ADMIT_HOLD=1 GR8_S2_TAIL_FIRST=1`), `SESS=32`, `CAP=327680` | fast mode, measured in README.md "Results": 32 chats of up to 327,670 tokens; replies not bit-identical to the exact model's |
+| `speed` (default) | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_CACHE_MIB=1024 GR8_DS_ENGRAM_CACHE_MIB=2048` and gr8's default v2 release stack (README.md "What `TUNE=speed` sets": 12,288-row v2 prefill with `GR8_DS_PF_V2=1 GR8_DS_PF_V2_W16K=1 GR8_DS_PF_V2_L20_TAIL=1 GR8_DS_PF_V2_SEND_FFN_OPT=3`, `GR8_DS_ATTN_TC_TILE=2`, `GR8_S2_ADMIT_HOLD=1 GR8_S2_TAIL_FIRST=1`, Engram io_uring), `SESS=32`, `CAP=327680` | fast mode: 32 chats of up to 327,670 tokens; replies not bit-identical to the exact model's |
 | `context` | the four switches above, `GR8_DS_ATTN_TC_TILE=1`, `GR8_DS_MHC_ROW_SHARD=1`, `GR8_DS_CACHE_MIB=2048`, `SESS=16`, `CAP=1048576` (not the release stack) | fast mode: one chat of up to 1,048,566 tokens, 16 chats at once |
-| `quality` | none of those switches, `GR8_DS_MHC_Y_MXFP8` included (gr8's launcher defaults), `SESS=5`, `CAP=262144` | the exact model's output: 5 chats of up to 262,134 tokens |
+| `quality` | gr8's `EXACT=1` (the old prefill path, none of fast mode's or v2's switches), `SESS=5`, `CAP=262144` | the exact model's output: 5 chats of up to 262,134 tokens |
 
 What else `knobs.sh` does:
 
 - Every value also sets Engram (`GR8_DS_ENGRAM=1`, `GR8_DS_ENGRAM_PREFIX`).
 - Every value adds `GR8_DS_SESS_DRAFTS=1` when `SESS` is above 5.
 - A `CAP` or `SESS` you set is kept.
-- Settings in `EXTRA_ENV` come after the recipe's, so yours win.
+- An engine setting in `EXTRA_ENV` replaces the recipe's value for it and comes after the recipe's own.
 - `.env.example` sets `EXTRA_ENV=GR8_GEN_CACHE=/var/lib/gr8/home/gen-cache`, so a `.env` copied from it has the gen
   cache on: the loader keeps the tensors it computes at load on the box's disk and reads them back at the next boot with
   the same cache key (the same image, rank and release, and a `TUNE` of the same kind: `quality`, or `speed` and
@@ -85,7 +85,7 @@ What else `knobs.sh` does:
   rewrite and a slow first boot, so say so before the person changes `TUNE` between those kinds later. To turn it off,
   put a `#` in front of that line in `.env` on all four boxes before the boot.
 - Any other `TUNE` value stops the boot. `EXACT` is the older name: the image refuses it and says that `EXACT=1` is
-  `TUNE=quality`.
+  `TUNE=quality` and `EXACT=0` is `TUNE=speed`.
 
 Every knob:
 
@@ -225,9 +225,16 @@ If a step fails for a reason not listed here, ask on the KindlingAI Discord (the
 
 ## 6. Not measured yet: tell the person
 
-- README.md "Results": the set A rows were measured on 2026-11-09 on this recipe's published image `sha-7c2088a`
-  (gr8 `43cad38`). Rows and columns marked "release 1 settings" (the decode right after each prefill, the set B many-stream
-  rows, the first boot from a cold disk, the switch rows) are from gr8 `0015fd0` and the settings before this release; they were not measured again. The KV cache is always fp8, and the image's engine is built with `DS41_MX=48`.
+- `kindling.json` and `docs/card.png` were measured on 2026-11-11 on the staged image built from gr8 `c2220f2`
+  (`TUNE=speed`: 12,288-row v2 prefill stack, `GR8_DS_CACHE_MIB=1024`, `GR8_DS_ENGRAM_CACHE_MIB=2048`, four GB10 boxes
+  in a ring, one boot; at least 3.25 GiB of host memory stayed free per box across ten distinct 128.9K cold prompts,
+  256K prefill, and 32-stream concurrency). In README.md "Results", the tables below the card are still from earlier
+  builds: the set A rows from 2026-11-09 on the published image `sha-7c2088a` (gr8 `43cad38`, 8,192-row v2 prefill
+  chunks without `GR8_DS_PF_V2_L20_TAIL=1` or `GR8_DS_PF_V2_SEND_FFN_OPT=3`), and the rows and columns marked "release
+  1 settings" (the decode right after each prefill, the set B many-stream rows, the first boot from a cold disk, the
+  switch rows) from gr8 `0015fd0` and the settings before that release. Those multi-series, closed-loop, boot, switch,
+  and 75-item quality rows have not been re-run on this image yet. The KV cache is always fp8, and the image's engine
+  is built with `DS41_MX=48`.
 - `TUNE=context` was measured on the image `sha-15b7eec` in one boot on 2026-11-07: a cold 1,031,542-token prompt read in 388.7 s (2,650 tok/s), the same prompt again in 1.19 s from
   the prefix cache, replies after it at 91.9 tok/s, and 8.7-9.4 GiB free a box just after ready. Recall and output
   quality at 1M, and three distinct cold 1M prompts at once, are not measured on that image.
