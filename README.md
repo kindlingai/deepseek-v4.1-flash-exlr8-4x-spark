@@ -14,8 +14,9 @@ DeepSeek-V4.1-Flash (DeepSeek's release [DeepSeek-V4.1-Flash-1017](https://huggi
 
 The card above (`kindling.json`) was measured on 2026-11-11 on the staged image built from gr8
 [`c2220f2`](https://github.com/kindlingai/gr8/commit/c2220f2e876409cec3f9660f34589b97e7c899fd) in fast mode
-(`TUNE=speed`, the default, with this recipe's 12,288-row v2 prefill stack, `GR8_DS_CACHE_MIB=1024` and
-`GR8_DS_ENGRAM_CACHE_MIB=2048`), on four GB10 boxes cabled in a ring (one boot, `bench/bench.py`).
+(`TUNE=speed`, the default, with that commit's 12,288-row v2 prefill stack before `GR8_DS_PF_V2_BF16_TC=7`,
+`GR8_DS_CACHE_MIB=1024` and `GR8_DS_ENGRAM_CACHE_MIB=2048`), on four GB10 boxes cabled in a ring (one boot,
+`bench/bench.py`).
 
 The tables below are from earlier runs before those defaults: gr8
 [`43cad38`](https://github.com/kindlingai/gr8/commit/43cad388ec8b7026b4feed2190fc5ce5a90c0c6d) in fast mode
@@ -126,7 +127,7 @@ MTU 9000, skip this step and put those addresses in `IPS` and `IPS2`.
 
 Four boxes cabled in a ring without a switch also work, with `SHAPE=ring` and without `IPS` and `IPS2`. Cable each
 box's f0 port to the next box's f1 port, and list `PEERS` in that cable order
-([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/db6f2c17c7b05303b69ce667e416d10340aeb9b7/docs/DEPLOY.md#how-the-boxes-find-each-other)).
+([gr8/docs/DEPLOY.md](https://github.com/kindlingai/gr8/blob/933c8853a1657e48d868e28a43fae4a40d3ddb3d/docs/DEPLOY.md#how-the-boxes-find-each-other)).
 
 With [`mentat`](https://github.com/kindlingai/mentat) running on each box, the recipe finds the other boxes and their
 ConnectX addresses by itself. On each box:
@@ -242,14 +243,14 @@ it does not alter Docker's daemon settings or other containers. For `docker run`
 
 ## Web console
 
-gr8 has a small web console ([gr8/tools/console](https://github.com/kindlingai/gr8/tree/db6f2c17c7b05303b69ce667e416d10340aeb9b7/tools/console)):
+gr8 has a small web console ([gr8/tools/console](https://github.com/kindlingai/gr8/tree/933c8853a1657e48d868e28a43fae4a40d3ddb3d/tools/console)):
 one page with the model's stats, the boxes, the head log, three presets, and a switch between models. It runs apart
 from the engine, so it stays up while a model restarts, and it sends no requests to the model.
 
 It is read-only until you set `allow_control` in its config. With control on, it can change the recipe's `.env` on
 each box and restart the model: it keeps a backup of each file and has a "Restore previous settings" action. It has no
 login: keep it on `localhost` and reach it through an SSH tunnel. Its
-[README](https://github.com/kindlingai/gr8/blob/db6f2c17c7b05303b69ce667e416d10340aeb9b7/tools/console/README.md) has the setup.
+[README](https://github.com/kindlingai/gr8/blob/933c8853a1657e48d868e28a43fae4a40d3ddb3d/tools/console/README.md) has the setup.
 
 ## Knobs
 
@@ -267,7 +268,7 @@ Set these in `.env` next to `compose.yaml` (see `.env.example`), or with `docker
 | `RELEASE` | a fixed commit | The release to fetch (`https://huggingface.co/<org>/<repo>@<commit>`). The fetch replaces only the files that differ. |
 | `EXTRA_ENV` | none | Engine settings as `NAME=value` pairs separated by spaces (`EXTRA_ENV="A=1 B=2"`). Each replaces the recipe's value for that setting and comes after the recipe's own. |
 
-[gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/db6f2c17c7b05303b69ce667e416d10340aeb9b7/KNOBS.md) lists the
+[gr8/KNOBS.md](https://github.com/kindlingai/gr8/blob/933c8853a1657e48d868e28a43fae4a40d3ddb3d/KNOBS.md) lists the
 other `gr8` options, which you can also set in `.env`. Some engine settings for `EXTRA_ENV`:
 
 - `GR8_DS_CACHE_MIB` sets the in-memory prefix cache on each box: 1,024 MiB with `TUNE=speed`, 2,048 with
@@ -281,7 +282,7 @@ other `gr8` options, which you can also set in `.env`. Some engine settings for 
 `TUNE=speed` turns on the recipe's fast-mode and cache switches (`knobs.sh`) and gr8's default v2 prefill release stack
 (`gr8/scripts/engine_args.sh`), one row each below. A `GR8_*` setting in `EXTRA_ENV` replaces it. The rows marked
 "output" change the reply; the others give the same reply faster or with less memory.
-[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/db6f2c17c7b05303b69ce667e416d10340aeb9b7/docs/ENV.md) has the full text of each.
+[gr8/docs/ENV.md](https://github.com/kindlingai/gr8/blob/933c8853a1657e48d868e28a43fae4a40d3ddb3d/docs/ENV.md) has the full text of each.
 
 | setting | what it does |
 |---|---|
@@ -297,6 +298,7 @@ other `gr8` options, which you can also set in `.env`. Some engine settings for 
 | `GR8_DS_PREFILL_W=12288`, `GR8_DS_PF_V2_W16K=1` | prefill chunks of 12,288 rows (`GR8_DS_ATTN_PW` and `GR8_DS41_IDX_PW` follow `GR8_DS_PREFILL_W`; `GR8_DS_PF_V2_W16K=0` uses 8,192-row chunks). |
 | `GR8_DS_PF_V2_L20_TAIL=1` | output: layer 20 runs only the 128-row chunk tail on prefill, with bounded replay when a later chat hits a prefix-cached interior slice. |
 | `GR8_DS_PF_V2_SEND_FFN_OPT=3` | v2 prefill publishes each quarter from the compute stream and unpacks both FFN halves together; the same output bits. |
+| `GR8_DS_PF_V2_BF16_TC=7` | output: v2 prefill runs the router gate, ratio-2 KV compressor and indexer/`cmp_wkv` projections on BF16 tensor cores instead of FP32 SIMT (`GR8_DS_PF_V2_BF16_TC=0` keeps the SIMT paths). |
 | `GR8_DS_SH_TC=1` | output: the shared expert of prefill runs on the tensor cores with MXFP8 input. |
 | `GR8_DS_MHC_ROW_SHARD=0`, `GR8_DS_MHC_Y_MXFP8=0` | the mHC row split off (gr8's default; v2 prefill needs it off, and it applies to prefill only). |
 | `GR8_DS_PF_V2_RS_BLOCKS=48` | v2 reduce-scatter with 48 blocks (gr8's default). |
@@ -322,7 +324,7 @@ other `gr8` options, which you can also set in `.env`. Some engine settings for 
 
 ## Switch between this and GLM-5.3 on the same four boxes
 
-To run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/db6f2c17c7b05303b69ce667e416d10340aeb9b7/docs/GLM-5.3.md) at TP=4 on the same
+To run this recipe and [gr8's GLM-5.3](https://github.com/kindlingai/gr8/blob/933c8853a1657e48d868e28a43fae4a40d3ddb3d/docs/GLM-5.3.md) at TP=4 on the same
 four boxes, one model at a time, two settings make the switch fast:
 
 - `GR8_GEN_CACHE` in both models' `EXTRA_ENV` (`.env.example` turns it on for this recipe): the loader keeps the tensors
