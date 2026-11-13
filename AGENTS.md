@@ -65,7 +65,7 @@ Set the same values on all four boxes, in `.env` (compose) or with `docker run -
 
 | `TUNE` | the settings it sets (`knobs.sh`) | what it gives |
 |---|---|---|
-| `speed` (default) | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_CACHE_MIB=1024 GR8_DS_ENGRAM_CACHE_MIB=2048` and gr8's default v2 release stack (README.md "What `TUNE=speed` sets": 12,288-row v2 prefill with `GR8_DS_PF_V2=1 GR8_DS_PF_V2_W16K=1 GR8_DS_PF_V2_L20_TAIL=1 GR8_DS_PF_V2_SEND_FFN_OPT=3`, `GR8_DS_ATTN_TC_TILE=2`, `GR8_S2_ADMIT_HOLD=1 GR8_S2_TAIL_FIRST=1`, Engram io_uring), `SESS=32`, `CAP=327680` | fast mode: 32 chats of up to 327,670 tokens; replies not bit-identical to the exact model's |
+| `speed` (default) | `GR8_DS_RELAXED_ACCEPT=topp:0.9,ratio:0.1 GR8_DS_MOE_TOPK_DECODE=4 GR8_DS41_HEAD_MX=1 GR8_DS_ATTN_TC_MF=2 GR8_DS_CACHE_MIB=1024 GR8_DS_ENGRAM_CACHE_MIB=2048` and gr8's default v2 release stack (README.md "What `TUNE=speed` sets": 12,288-row v2 prefill with `GR8_DS_PF_V2=1 GR8_DS_PF_V2_W16K=1 GR8_DS_PF_V2_L20_TAIL=1 GR8_DS_PF_V2_SEND_FFN_OPT=3 GR8_DS_PF_V2_BF16_TC=7`, `GR8_DS_ATTN_TC_TILE=2`, `GR8_S2_ADMIT_HOLD=1 GR8_S2_TAIL_FIRST=1`, Engram io_uring), `SESS=32`, `CAP=327680` | fast mode: 32 chats of up to 327,670 tokens; replies not bit-identical to the exact model's |
 | `context` | the four switches above, `GR8_DS_ATTN_TC_TILE=1`, `GR8_DS_MHC_ROW_SHARD=1`, `GR8_DS_CACHE_MIB=2048`, `SESS=16`, `CAP=1048576` (not the release stack) | fast mode: one chat of up to 1,048,566 tokens, 16 chats at once |
 | `quality` | gr8's `EXACT=1` (the old prefill path, none of fast mode's or v2's switches), `SESS=5`, `CAP=262144` | the exact model's output: 5 chats of up to 262,134 tokens |
 
@@ -226,9 +226,11 @@ If a step fails for a reason not listed here, ask on the KindlingAI Discord (the
 ## 6. Not measured yet: tell the person
 
 - `kindling.json` and `docs/card.png` were measured on 2026-11-11 on the staged image built from gr8 `c2220f2`
-  (`TUNE=speed`: 12,288-row v2 prefill stack, `GR8_DS_CACHE_MIB=1024`, `GR8_DS_ENGRAM_CACHE_MIB=2048`, four GB10 boxes
-  in a ring, one boot; at least 3.25 GiB of host memory stayed free per box across ten distinct 128.9K cold prompts,
-  256K prefill, and 32-stream concurrency). In README.md "Results", the tables below the card are still from earlier
+  (`TUNE=speed`: 12,288-row v2 prefill stack before `GR8_DS_PF_V2_BF16_TC=7` and the expert-log cursor fix,
+  `GR8_DS_CACHE_MIB=1024`, `GR8_DS_ENGRAM_CACHE_MIB=2048`, four GB10 boxes in a ring, one boot; at least 3.25 GiB of
+  host memory stayed free per box across ten distinct 128.9K cold prompts, 256K prefill, and 32-stream concurrency).
+  `GR8_DS_PF_V2_BF16_TC=7` was measured separately on four GB10 boxes at `W=12288` (cold prefill -2.27% at 32K and
+  -3.02% at 128K, decode -0.6% code / +0.5% prose); the full card has not been re-run on this image yet. In README.md "Results", the tables below the card are still from earlier
   builds: the set A rows from 2026-11-09 on the published image `sha-7c2088a` (gr8 `43cad38`, 8,192-row v2 prefill
   chunks without `GR8_DS_PF_V2_L20_TAIL=1` or `GR8_DS_PF_V2_SEND_FFN_OPT=3`), and the rows and columns marked "release
   1 settings" (the decode right after each prefill, the set B many-stream rows, the first boot from a cold disk, the

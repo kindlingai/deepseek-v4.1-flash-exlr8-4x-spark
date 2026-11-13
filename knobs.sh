@@ -4,11 +4,12 @@
 #   MENTAT=1: find the other boxes through the host's mentat daemon (gr8's MENTAT=localhost) and announce the API in the
 #             mentat cluster, in group GROUP (gr8-ds41-4x by default).
 #   TUNE=speed (default): fast mode with gr8's default v2 release stack (12,288-row chunks, GR8_DS_PF_V2=1,
-#             GR8_DS_PF_V2_W16K=1, GR8_DS_PF_V2_L20_TAIL=1, GR8_DS_PF_V2_SEND_FFN_OPT=3, GR8_DS_ATTN_TC_TILE=2,
-#             GR8_S2_ADMIT_HOLD=1 and GR8_S2_TAIL_FIRST=1; gr8/scripts/engine_args.sh), plus FIRST-BOOT.md Q3's two
-#             switches and Q4's output head, which change the output, the prefill setting GR8_DS_ATTN_TC_MF=2,
-#             GR8_DS_CACHE_MIB=1024 and GR8_DS_ENGRAM_CACHE_MIB=2048 (gr8/docs/ENV.md), and, unless set, SESS=32 and
-#             CAP=327680. The image's engine is built with DS41_MX=48 (Dockerfile), so a step holds 48 rows.
+#             GR8_DS_PF_V2_W16K=1, GR8_DS_PF_V2_L20_TAIL=1, GR8_DS_PF_V2_SEND_FFN_OPT=3, GR8_DS_PF_V2_BF16_TC=7,
+#             GR8_DS_ATTN_TC_TILE=2, GR8_S2_ADMIT_HOLD=1 and GR8_S2_TAIL_FIRST=1; gr8/scripts/engine_args.sh), plus
+#             FIRST-BOOT.md Q3's two switches and Q4's output head, which change the output, the prefill setting
+#             GR8_DS_ATTN_TC_MF=2, GR8_DS_CACHE_MIB=1024 and GR8_DS_ENGRAM_CACHE_MIB=2048 (gr8/docs/ENV.md), and,
+#             unless set, SESS=32 and CAP=327680. The image's engine is built with DS41_MX=48 (Dockerfile), so a step
+#             holds 48 rows.
 #   TUNE=context: FIRST-BOOT.md Q3 and Q4, GR8_DS_ATTN_TC_MF=2, GR8_DS_ATTN_TC_TILE=1, GR8_DS_MHC_ROW_SHARD=1,
 #             GR8_DS_CACHE_MIB=2048 and, unless set, SESS=16 and CAP=1048576 (FIRST-BOOT.md Q2). GR8_DS_MHC_ROW_SHARD=1
 #             selects gr8's old prefill path, not the release stack.
@@ -45,7 +46,10 @@ extra=${EXTRA_ENV:-}
 read -ra extra_arr <<< "${extra//[$'\t\r\n']/ }"
 extra=
 for kv in ${extra_arr[@]+"${extra_arr[@]}"}; do
-  case "$kv" in G6_DS41_CACHE_MIB=*) kv=GR8_DS_CACHE_MIB=${kv#*=} ;; esac
+  case "$kv" in
+    G6_DS41_CACHE_MIB=*) kv=GR8_DS_CACHE_MIB=${kv#*=} ;;
+    G6_DS41_PF_V2_BF16_TC=*) kv=GR8_DS_PF_V2_BF16_TC=${kv#*=} ;;
+  esac
   extra="${extra:+$extra }$kv"
 done
 kept=
