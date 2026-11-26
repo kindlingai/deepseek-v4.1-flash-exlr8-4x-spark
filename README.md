@@ -1,3 +1,11 @@
+> [!IMPORTANT]
+> **This repository is archived.** This recipe now lives in [kindlingai/recipes](https://github.com/kindlingai/recipes), the Kindling recipes
+> monorepo, at [`deepseek-v4.1-flash/dgx-spark/4x/exlr8-gr8`](https://github.com/kindlingai/recipes/tree/main/deepseek-v4.1-flash/dgx-spark/4x/exlr8-gr8), with this repo's full history. Use
+> that folder for the current recipe, and open issues and pull requests in kindlingai/recipes.
+>
+> If that folder has since moved or been retired, the [recipe index](https://github.com/kindlingai/recipes#recipes)
+> lists every current recipe. The rest of this README is the recipe as it was when this repo was archived.
+
 # KindlingAI: DeepSeek-V4.1-Flash EXLR8 on four DGX Sparks
 
 If you are an agent booting this for someone, read [AGENTS.md](AGENTS.md) first, then the Quickstart.
